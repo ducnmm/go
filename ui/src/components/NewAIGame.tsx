@@ -42,11 +42,12 @@ const DIFFICULTY_OPTIONS = [
     }
 ];
 
-const TROPHY_INFO = [
-    { rarity: "🥉 Bronze", condition: "Win in 8-9 moves", color: "#CD7F32" },
-    { rarity: "🥈 Silver", condition: "Win in 6-7 moves", color: "#C0C0C0" },
-    { rarity: "🥇 Gold", condition: "Win in 5 moves", color: "#FFD700" },
-    { rarity: "💎 Diamond", condition: "Perfect game vs Hard AI", color: "#B9F2FF" },
+const TROPHY_TIERS = [
+    { rarity: "🥉 Bronze", condition: "Win in 10-12 moves", color: "#CD7F32" },
+    { rarity: "🥈 Silver", condition: "Win in 8-9 moves", color: "#C0C0C0" },
+    { rarity: "🥇 Gold", condition: "Win in 6-7 moves", color: "#FFD700" },
+    { rarity: "💎 Diamond", condition: "Win in 5 moves + bonuses", color: "#B9F2FF" },
+    { rarity: "🌈 Rainbow", condition: "Legendary streaks", color: "#FF6B6B" }
 ];
 
 export function NewAIGame() {
@@ -107,13 +108,13 @@ export function NewAIGame() {
                 <Flex direction="column" gap="4">
                     {/* Header */}
                     <Flex align="center" gap="3">
-                        <GearIcon width="24" height="24" />
-                        <Heading size="6">Challenge the AI</Heading>
-                        <StarIcon width="20" height="20" color="gold" />
+                        <Heading size="6" weight="bold" mb="3">
+                            AI Caro Challenge
+                        </Heading>
                     </Flex>
 
-                    <Text color="gray" size="2">
-                        Battle against smart contract AI and earn Trophy NFTs based on your performance!
+                    <Text size="4" color="gray" mb="4">
+                        Play Caro (9x9 board, 5 in a row to win) against smart contract AI and earn Trophy NFTs based on your performance!
                     </Text>
 
                     <Separator />
@@ -163,7 +164,7 @@ export function NewAIGame() {
                         </Flex>
                         
                         <Box>
-                            {TROPHY_INFO.map((trophy, index) => (
+                            {TROPHY_TIERS.map((trophy, index) => (
                                 <Flex key={index} justify="between" align="center" py="2">
                                     <Text size="2">{trophy.rarity}</Text>
                                     <Text size="2" color="gray">{trophy.condition}</Text>

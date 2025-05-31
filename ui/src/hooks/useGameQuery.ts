@@ -5,10 +5,10 @@ import { UseQueryResult } from "@tanstack/react-query";
 import { useNetworkVariable } from "config";
 import { useObjectQuery, UseObjectQueryResponse } from "hooks/useObjectQuery";
 
-/** Variants of the tic-tac-toe protocol */
+/** Variants of the caro protocol */
 export type Kind = "shared";
 
-/** Marks on the game baord */
+/** Marks on the game board */
 export enum Mark {
     /** No mark */
     _ = 0,
@@ -26,7 +26,7 @@ export type Game = {
     /** Whether it's a 'shared' game */
     kind: Kind;
 
-    /** Current state of the game board, 9 marks in row-major order. */
+    /** Current state of the game board, 49 marks in row-major order (7x7). */
     board: Mark[];
 
     /** Number of turns played so far. */

@@ -1,13 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { CircleIcon, Cross1Icon } from "@radix-ui/react-icons";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { Mark } from "hooks/useGameQuery";
-import { ReactElement } from "react";
+import { ReactElement, useState } from "react";
 
 /**
- * Represents a Tic-Tac-Toe board.
+ * Represents a Caro board that adapts to different sizes automatically.
  *
  * `marks` is a linear array containing the marks on the board, in
  * row-major order, `empty` is the Mark to display when hovering over
@@ -24,18 +23,40 @@ export function Board({
     empty: Mark;
     onMove: (i: number, j: number) => void;
 }): ReactElement {
-    const board = Array.from({ length: 3 }, (_, i) => marks.slice(i * 3, (i + 1) * 3));
+    // Auto-detect board size: 49 = 7x7, 81 = 9x9
+    const totalCells = marks.length;
+    const BOARD_SIZE = totalCells === 49 ? 7 : 9;
+    
+    const board = Array.from({ length: BOARD_SIZE }, (_, i) => 
+        marks.slice(i * BOARD_SIZE, (i + 1) * BOARD_SIZE)
+    );
 
     return (
-        <Flex direction="column" gap="2" className="board" mb="2">
-            {board.map((row, r) => (
-                <Flex direction="row" gap="2" key={r}>
-                    {row.map((cell, c) => (
-                        <Cell key={c} mark={cell} empty={empty} onMove={() => onMove(r, c)} />
-                    ))}
-                </Flex>
-            ))}
-        </Flex>
+        <Box 
+            style={{
+                display: "grid",
+                gridTemplateColumns: `repeat(${BOARD_SIZE}, 1fr)`,
+                gap: "3px",
+                padding: "16px",
+                // backgroundColor: "var(--gray-2)",
+                // borderRadius: "12px",
+                // border: "2px solid var(--gray-6)",
+                maxWidth: BOARD_SIZE === 7 ? "500px" : "600px",
+                margin: "0 auto"
+            }}
+        >
+            {board.map((row, r) =>
+                row.map((cell, c) => (
+                    <Cell 
+                        key={`${r}-${c}`} 
+                        mark={cell} 
+                        empty={empty} 
+                        onMove={() => onMove(r, c)}
+                        boardSize={BOARD_SIZE}
+                    />
+                ))
+            )}
+        </Box>
     );
 }
 
@@ -43,32 +64,111 @@ function Cell({
     mark,
     empty,
     onMove,
+    boardSize,
 }: {
     mark: Mark;
     empty: Mark;
     onMove: () => void;
+    boardSize: number;
 }): ReactElement {
+    const cellStyle = {
+        width: boardSize === 7 ? "50px" : "40px",
+        height: boardSize === 7 ? "50px" : "40px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "var(--gray-1)",
+        border: "1px solid var(--gray-5)",
+        borderRadius: "6px",
+        cursor: mark === Mark._ && empty !== Mark._ ? "pointer" : "default",
+        transition: "all 0.2s ease",
+        fontSize: boardSize === 7 ? "24px" : "20px",
+        fontWeight: "bold",
+    };
+
+    const hoverStyle = mark === Mark._ && empty !== Mark._ ? {
+        backgroundColor: "var(--blue-2)",
+        borderColor: "var(--blue-6)",
+        transform: "scale(1.05)",
+    } : {};
+
     switch (mark) {
         case Mark.X:
-            return <Cross1Icon className="cell" width="100%" height="100%" />;
+            return (
+                <Box 
+                    style={{
+                        ...cellStyle,
+                        backgroundColor: "var(--red-2)",
+                        borderColor: "var(--red-6)",
+                        color: "var(--red-11)"
+                    }}
+                >
+                    ❌
+                </Box>
+            );
         case Mark.O:
-            return <CircleIcon className="cell" width="100%" height="100%" />;
+            return (
+                <Box 
+                    style={{
+                        ...cellStyle,
+                        backgroundColor: "var(--blue-2)",
+                        borderColor: "var(--blue-6)",
+                        color: "var(--blue-11)"
+                    }}
+                >
+                    ⭕
+                </Box>
+            );
         case Mark._:
-            return <EmptyCell empty={empty} onMove={onMove} />;
+            return <EmptyCell empty={empty} onMove={onMove} cellStyle={cellStyle} hoverStyle={hoverStyle} />;
     }
 }
 
-function EmptyCell({ empty, onMove }: { empty: Mark; onMove: () => void }): ReactElement | null {
+function EmptyCell({ 
+    empty, 
+    onMove, 
+    cellStyle, 
+    hoverStyle 
+}: { 
+    empty: Mark; 
+    onMove: () => void;
+    cellStyle: any;
+    hoverStyle: any;
+}): ReactElement | null {
+    const [isHovered, setIsHovered] = useState(false);
+
     switch (empty) {
         case Mark.X:
             return (
-                <Cross1Icon className="cell empty" width="100%" height="100%" onClick={onMove} />
+                <Box 
+                    style={{
+                        ...cellStyle,
+                    }}
+                    onClick={onMove}
+                    onMouseEnter={() => setIsHovered(true)}
+                    onMouseLeave={() => setIsHovered(false)}
+                >
+                    {isHovered ? "❌" : ""}
+                </Box>
             );
         case Mark.O:
             return (
-                <CircleIcon className="cell empty" width="100%" height="100%" onClick={onMove} />
+                <Box 
+                    style={{
+                        ...cellStyle,
+                    }}
+                    onClick={onMove}
+                    onMouseEnter={() => setIsHovered(true)}
+                    onMouseLeave={() => setIsHovered(false)}
+                >
+                    {isHovered ? "⭕" : ""}
+                </Box>
             );
         case Mark._:
-            return <Box className="cell empty" width="100%" height="100%" />;
+            return (
+                <Box 
+                    style={cellStyle}
+                />
+            );
     }
 }

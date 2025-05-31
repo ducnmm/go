@@ -31,10 +31,11 @@ interface TrophyData {
 }
 
 const TROPHY_INFO = [
-    { rarity: "🥉 Bronze", condition: "Win in 8-9 moves", color: "#CD7F32", minMoves: 8, maxMoves: 9 },
-    { rarity: "🥈 Silver", condition: "Win in 6-7 moves", color: "#C0C0C0", minMoves: 6, maxMoves: 7 },
-    { rarity: "🥇 Gold", condition: "Win in 5 moves", color: "#FFD700", minMoves: 5, maxMoves: 5 },
-    { rarity: "💎 Diamond", condition: "Perfect game vs Hard AI", color: "#B9F2FF", minMoves: 1, maxMoves: 9 }
+    { rarity: "🥉 Bronze", condition: "Win in 10-12 moves", color: "#CD7F32", minMoves: 10, maxMoves: 12 },
+    { rarity: "🥈 Silver", condition: "Win in 8-9 moves", color: "#C0C0C0", minMoves: 8, maxMoves: 9 },
+    { rarity: "🥇 Gold", condition: "Win in 6-7 moves", color: "#FFD700", minMoves: 6, maxMoves: 7 },
+    { rarity: "💎 Diamond", condition: "Win in 5 moves + bonuses", color: "#B9F2FF", minMoves: 5, maxMoves: 5 },
+    { rarity: "🌈 Rainbow", condition: "Legendary streaks", color: "#FF6B6B", minMoves: 1, maxMoves: 100 }
 ];
 
 const DIFFICULTY_LABELS = {
@@ -43,18 +44,13 @@ const DIFFICULTY_LABELS = {
     3: "🔴 Hard"
 };
 
-function getTrophyRarity(moves: number, difficulty: number, rarity: number): { rarity: string; color: string; condition: string } {
-    // Map from Move constants: 1=Bronze, 2=Silver, 3=Gold, 4=Diamond, 5=Rainbow
-    if (rarity === 5) {
-        return { rarity: "🌈 Rainbow", color: "#FF69B4", condition: "Legendary Achievement" };
-    } else if (rarity === 4 || difficulty === 3) {
-        return { rarity: "💎 Diamond", color: "#B9F2FF", condition: "Perfect game vs Hard AI" };
-    } else if (rarity === 3 || moves === 5) {
-        return { rarity: "🥇 Gold", color: "#FFD700", condition: "Win in 5 moves" };
-    } else if (rarity === 2 || (moves >= 6 && moves <= 7)) {
-        return { rarity: "🥈 Silver", color: "#C0C0C0", condition: "Win in 6-7 moves" };
+function getRarityDetails(rarity: number, moves?: number): { rarity: string; color: string; condition: string } {
+    if (rarity === 3 || (moves && moves >= 6 && moves <= 7)) {
+        return { rarity: "🥇 Gold", color: "#FFD700", condition: "Win in 6-7 moves" };
+    } else if (rarity === 2 || (moves && moves >= 8 && moves <= 9)) {
+        return { rarity: "🥈 Silver", color: "#C0C0C0", condition: "Win in 8-9 moves" };
     } else {
-        return { rarity: "🥉 Bronze", color: "#CD7F32", condition: "Win in 8-9 moves" };
+        return { rarity: "🥉 Bronze", color: "#CD7F32", condition: "Win in 10-12 moves" };
     }
 }
 
@@ -94,7 +90,7 @@ export function AccountAchievements({ address }: AccountAchievementsProps) {
                         const timestamp = parseInt(fields.timestamp || "0");
                         const rarityValue = parseInt(fields.rarity || "1");
                         
-                        const trophyInfo = getTrophyRarity(moves, difficulty, rarityValue);
+                        const trophyInfo = getRarityDetails(rarityValue, moves);
                         
                         trophies.push({
                             id: obj.data.objectId,

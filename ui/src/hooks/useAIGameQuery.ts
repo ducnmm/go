@@ -10,7 +10,7 @@ export type AIGame = {
     /** The game's Object ID */
     id: string;
 
-    /** Current state of the game board, 9 marks in row-major order. */
+    /** Current state of the game board, 81 marks in row-major order (9x9). */
     board: number[];
 
     /** Address of the human player (always X) */

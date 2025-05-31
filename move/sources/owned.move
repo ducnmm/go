@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-/// An implementation of Tic Tac Toe, using owned objects.
+/// An implementation of Caro (7x7 with 4 in a row to win), using owned objects.
 ///
 /// The `Game` object is owned by an admin, so players cannot mutate the game
 /// board directly. Instead, they convey their intention to place a mark by
@@ -24,7 +24,7 @@ use sui::transfer::Receiving;
 
 // === Object Types ===
 
-/// The state of an active game of tic-tac-toe.
+/// The state of an active game of caro.
 public struct Game has key, store {
     id: UID,
     /// Marks on the board.
@@ -81,6 +81,10 @@ public struct GameEnd has copy, drop {
 
 // === Constants ===
 
+// Board size
+const BOARD_SIZE: u8 = 7;
+const TOTAL_CELLS: u8 = 49; // 7 * 7
+
 // Marks
 const MARK__: u8 = 0;
 const MARK_X: u8 = 1;
@@ -115,9 +119,16 @@ const EInvalidEndState: vector<u8> = b"Game reached an end state that wasn't exp
 /// that address is a multi-sig of the two players, its public key
 /// should be passed as `admin`.
 public fun new(x: address, o: address, admin: vector<u8>, ctx: &mut TxContext): Game {
+    let mut board = vector::empty<u8>();
+    let mut i = 0;
+    while (i < TOTAL_CELLS) {
+        vector::push_back(&mut board, MARK__);
+        i = i + 1;
+    };
+
     let game = Game {
         id: object::new(ctx),
-        board: vector[MARK__, MARK__, MARK__, MARK__, MARK__, MARK__, MARK__, MARK__, MARK__],
+        board,
         turn: 0,
         x,
         o,
@@ -138,7 +149,7 @@ public fun new(x: address, o: address, admin: vector<u8>, ctx: &mut TxContext): 
 /// This consumes the `TurnCap` to prevent a player from making more than
 /// one move on their turn.
 public fun send_mark(cap: TurnCap, row: u8, col: u8, ctx: &mut TxContext) {
-    assert!(row < 3 && col < 3, EInvalidLocation);
+    assert!(row < BOARD_SIZE && col < BOARD_SIZE, EInvalidLocation);
 
     let TurnCap { id, game } = cap;
     id.delete();
@@ -205,19 +216,86 @@ public fun burn(game: Game) {
 
 /// Test whether the game has reached an end condition or not.
 public fun ended(game: &Game): u8 {
-    if (// Test rows
-        test_triple(game, 0, 1, 2) ||
-            test_triple(game, 3, 4, 5) ||
-            test_triple(game, 6, 7, 8) ||
-            // Test columns
-            test_triple(game, 0, 3, 6) ||
-            test_triple(game, 1, 4, 7) ||
-            test_triple(game, 2, 5, 8) ||
-            // Test diagonals
-            test_triple(game, 0, 4, 8) ||
-            test_triple(game, 2, 4, 6)) {
-        TROPHY_WIN
-    } else if (game.turn == 9) {
+    // Check all possible 4-in-a-row combinations
+    
+    // Check rows
+    let mut row = 0;
+    while (row < BOARD_SIZE) {
+        let mut col = 0;
+        while (col <= BOARD_SIZE - 4) {
+            let positions = vector[
+                row * BOARD_SIZE + col,
+                row * BOARD_SIZE + col + 1,
+                row * BOARD_SIZE + col + 2,
+                row * BOARD_SIZE + col + 3
+            ];
+            if (test_line_of_four(game, positions)) {
+                return TROPHY_WIN
+            };
+            col = col + 1;
+        };
+        row = row + 1;
+    };
+
+    // Check columns
+    let mut col = 0;
+    while (col < BOARD_SIZE) {
+        let mut row = 0;
+        while (row <= BOARD_SIZE - 4) {
+            let positions = vector[
+                row * BOARD_SIZE + col,
+                (row + 1) * BOARD_SIZE + col,
+                (row + 2) * BOARD_SIZE + col,
+                (row + 3) * BOARD_SIZE + col
+            ];
+            if (test_line_of_four(game, positions)) {
+                return TROPHY_WIN
+            };
+            row = row + 1;
+        };
+        col = col + 1;
+    };
+
+    // Check diagonal (top-left to bottom-right)
+    let mut row = 0;
+    while (row <= BOARD_SIZE - 4) {
+        let mut col = 0;
+        while (col <= BOARD_SIZE - 4) {
+            let positions = vector[
+                row * BOARD_SIZE + col,
+                (row + 1) * BOARD_SIZE + col + 1,
+                (row + 2) * BOARD_SIZE + col + 2,
+                (row + 3) * BOARD_SIZE + col + 3
+            ];
+            if (test_line_of_four(game, positions)) {
+                return TROPHY_WIN
+            };
+            col = col + 1;
+        };
+        row = row + 1;
+    };
+
+    // Check diagonal (top-right to bottom-left)
+    let mut row = 0;
+    while (row <= BOARD_SIZE - 4) {
+        let mut col = 3;
+        while (col < BOARD_SIZE) {
+            let positions = vector[
+                row * BOARD_SIZE + col,
+                (row + 1) * BOARD_SIZE + col - 1,
+                (row + 2) * BOARD_SIZE + col - 2,
+                (row + 3) * BOARD_SIZE + col - 3
+            ];
+            if (test_line_of_four(game, positions)) {
+                return TROPHY_WIN
+            };
+            col = col + 1;
+        };
+        row = row + 1;
+    };
+
+    // Check for draw (board full)
+    if (game.turn == TOTAL_CELLS) {
         TROPHY_DRAW
     } else {
         TROPHY_NONE
@@ -226,12 +304,12 @@ public fun ended(game: &Game): u8 {
 
 #[syntax(index)]
 public fun mark(game: &Game, row: u8, col: u8): &u8 {
-    &game.board[(row * 3 + col) as u64]
+    &game.board[(row * BOARD_SIZE + col) as u64]
 }
 
 #[syntax(index)]
 fun mark_mut(game: &mut Game, row: u8, col: u8): &mut u8 {
-    &mut game.board[(row * 3 + col) as u64]
+    &mut game.board[(row * BOARD_SIZE + col) as u64]
 }
 
 // === Private Helpers ===
@@ -246,14 +324,18 @@ fun next_player(game: &Game): (address, address, u8) {
     }
 }
 
-/// Test whether the values at the triple of positions all match each other
-/// (and are not all EMPTY).
-fun test_triple(game: &Game, x: u8, y: u8, z: u8): bool {
-    let x = game.board[x as u64];
-    let y = game.board[y as u64];
-    let z = game.board[z as u64];
-
-    MARK__ != x && x == y && y == z
+/// Test whether 4 consecutive positions contain the same mark (and not empty).
+fun test_line_of_four(game: &Game, positions: vector<u8>): bool {
+    let mark = game.board[*vector::borrow(&positions, 0) as u64];
+    if (mark == MARK__) return false;
+    
+    let mut i = 1;
+    while (i < 4) {
+        let pos = *vector::borrow(&positions, i);
+        if (game.board[pos as u64] != mark) return false;
+        i = i + 1;
+    };
+    true
 }
 
 /// Create a trophy from the current state of the `game`, that indicates

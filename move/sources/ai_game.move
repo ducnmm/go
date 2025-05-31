@@ -1,13 +1,14 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-/// Single-player tic-tac-toe game where the player competes against a smart contract AI.
+/// Single-player caro game (9x9 with 5 in a row to win) where the player competes against a smart contract AI.
 /// The player is always X and the AI is always O.
 /// Winner receives a Trophy NFT with rarity based on performance.
+#[allow(duplicate_alias)]
 module tic_tac_toe::ai_game {
     
     // === Imports ===
-    use sui::object::{Self, UID};
+    use sui::object::{Self, UID, ID};
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
     use std::vector;
@@ -24,6 +25,10 @@ module tic_tac_toe::ai_game {
     const EGameNotFinished: u64 = 5;
 
     // === Constants ===
+    // Board size
+    const BOARD_SIZE: u8 = 9;
+    const TOTAL_CELLS: u8 = 81; // 9 * 9
+    
     const MARK_EMPTY: u8 = 0;
     const MARK_X: u8 = 1;  // Player
     const MARK_O: u8 = 2;  // AI
@@ -43,21 +48,19 @@ module tic_tac_toe::ai_game {
     const RARITY_SILVER: u8 = 2;
     const RARITY_GOLD: u8 = 3;
     const RARITY_DIAMOND: u8 = 4;
-    const RARITY_RAINBOW: u8 = 5;
 
     // Win patterns
     const PATTERN_CENTER_CONTROL: u8 = 1;
     const PATTERN_CORNER_TRAP: u8 = 2;
     const PATTERN_FORK_ATTACK: u8 = 3;
     const PATTERN_DEFENSIVE_WIN: u8 = 4;
-    const PATTERN_BLITZ_WIN: u8 = 5;
 
     // === Structs ===
 
-    /// Represents a tic-tac-toe game vs AI
+    /// Represents a caro game vs AI (9x9 board)
     public struct AIGame has key, store {
         id: UID,
-        board: vector<u8>, // 3x3 board represented as vector of 9 elements
+        board: vector<u8>, // 9x9 board represented as vector of 81 elements
         player: address,   // The human player (always X)
         turn: u8,         // 0 = player turn, 1 = AI turn
         game_status: u8,  // 0: active, 1: player wins, 2: AI wins, 3: draw
@@ -71,8 +74,8 @@ module tic_tac_toe::ai_game {
     public struct Trophy has key, store {
         id: UID,
         winner: address,
-        rarity: u8,           // 1=Bronze, 2=Silver, 3=Gold, 4=Diamond, 5=Rainbow
-        moves_to_win: u8,     // 5-9 moves
+        rarity: u8,           // 1=Bronze, 2=Silver, 3=Gold, 4=Diamond
+        moves_to_win: u8,     // Moves to win
         ai_difficulty: u8,    // 1=Easy, 2=Medium, 3=Hard
         win_pattern: u8,      // Type of winning strategy
         thinking_time: u64,   // Total thinking time in milliseconds
@@ -81,19 +84,6 @@ module tic_tac_toe::ai_game {
         name: String,
         description: String,
         image_url: String,
-    }
-
-    /// Player statistics for streak tracking
-    public struct PlayerStats has key, store {
-        id: UID,
-        player: address,
-        total_games: u64,
-        wins: u64,
-        losses: u64,
-        draws: u64,
-        current_streak: u8,
-        best_streak: u8,
-        trophies_earned: u64,
     }
 
     // === Events ===
@@ -141,7 +131,7 @@ module tic_tac_toe::ai_game {
         
         let mut board = vector::empty<u8>();
         let mut i = 0;
-        while (i < 9) {
+        while (i < TOTAL_CELLS) {
             vector::push_back(&mut board, MARK_EMPTY);
             i = i + 1;
         };
@@ -170,6 +160,7 @@ module tic_tac_toe::ai_game {
     }
 
     /// Create a new shared AI game
+    #[allow(lint(share_owned))]
     public fun new_shared_ai_game(difficulty: u8, clock: &Clock, ctx: &mut TxContext) {
         transfer::share_object(new_ai_game(difficulty, clock, ctx));
     }
@@ -188,7 +179,7 @@ module tic_tac_toe::ai_game {
         assert!(game.game_status == GAME_ACTIVE, EGameNotActive);
         assert!(sender == game.player, ENotPlayerTurn);
         assert!(game.turn == 0, ENotPlayerTurn); // Must be player's turn
-        assert!(position < 9, EInvalidMove);
+        assert!(position < TOTAL_CELLS, EInvalidMove);
         assert!(*vector::borrow(&game.board, (position as u64)) == MARK_EMPTY, EAlreadyFilled);
 
         // Track move time
@@ -224,7 +215,7 @@ module tic_tac_toe::ai_game {
         };
 
         // Check for draw
-        if (game.moves_count == 9) {
+        if (game.moves_count == TOTAL_CELLS) {
             game.game_status = GAME_DRAW;
             event::emit(GameFinished {
                 game_id: object::id(game),
@@ -243,7 +234,7 @@ module tic_tac_toe::ai_game {
     }
 
     /// AI makes a move (AI is always O)
-    fun ai_move(game: &mut AIGame, clock: &Clock, ctx: &mut TxContext) {
+    fun ai_move(game: &mut AIGame, clock: &Clock, _ctx: &mut TxContext) {
         // Calculate AI move based on difficulty
         let ai_position = calculate_ai_move(&game.board, game.difficulty, clock);
         
@@ -269,7 +260,7 @@ module tic_tac_toe::ai_game {
         };
 
         // Check for draw
-        if (game.moves_count == 9) {
+        if (game.moves_count == TOTAL_CELLS) {
             game.game_status = GAME_DRAW;
             event::emit(GameFinished {
                 game_id: object::id(game),
@@ -337,20 +328,20 @@ module tic_tac_toe::ai_game {
         // For gas efficiency, use simplified algorithms based on difficulty
         
         if (difficulty == DIFFICULTY_EASY) {
-            // Easy: 30% optimal, 70% random
+            // Easy: 30% optimal, 70% random adjacent
             let seed = clock::timestamp_ms(clock) % 10;
             if (seed < 3) {
                 calculate_optimal_move(board)
             } else {
-                get_random_move(board, clock)
+                get_random_adjacent_move(board, clock)
             }
         } else if (difficulty == DIFFICULTY_MEDIUM) {
-            // Medium: 70% optimal, 30% random
+            // Medium: 70% optimal, 30% random adjacent
             let seed = clock::timestamp_ms(clock) % 10;
             if (seed < 7) {
                 calculate_optimal_move(board)
             } else {
-                get_random_move(board, clock)
+                get_random_adjacent_move(board, clock)
             }
         } else {
             // Hard: Always optimal
@@ -358,7 +349,7 @@ module tic_tac_toe::ai_game {
         }
     }
 
-    /// Calculate optimal move using minimax-like logic
+    /// Calculate optimal move using move evaluation scoring
     fun calculate_optimal_move(board: &vector<u8>): u8 {
         // 1. Try to win
         let win_move = find_winning_move(board, MARK_O);
@@ -368,35 +359,188 @@ module tic_tac_toe::ai_game {
         let block_move = find_winning_move(board, MARK_X);
         if (block_move != 255) return block_move;
 
-        // 3. Take center if available
-        if (*vector::borrow(board, 4) == MARK_EMPTY) return 4;
-
-        // 4. Take corners
-        let corners = vector[0, 2, 6, 8];
-        let mut i = 0;
-        while (i < vector::length(&corners)) {
-            let pos = *vector::borrow(&corners, i);
-            if (*vector::borrow(board, (pos as u64)) == MARK_EMPTY) return pos;
-            i = i + 1;
+        // 3. Use move evaluation to find best position
+        let mut best_pos = 255;
+        let mut best_score = 0;
+        
+        let mut pos = 0;
+        while (pos < TOTAL_CELLS) {
+            if (*vector::borrow(board, (pos as u64)) == MARK_EMPTY) {
+                let score = evaluate_move_score(board, pos, MARK_O);
+                if (best_pos == 255 || score > best_score) {
+                    best_pos = pos;
+                    best_score = score;
+                };
+            };
+            pos = pos + 1;
         };
 
-        // 5. Take any edge
-        let edges = vector[1, 3, 5, 7];
-        i = 0;
-        while (i < vector::length(&edges)) {
-            let pos = *vector::borrow(&edges, i);
-            if (*vector::borrow(board, (pos as u64)) == MARK_EMPTY) return pos;
-            i = i + 1;
+        if (best_pos != 255) {
+            return best_pos
         };
 
+        // Fallback: take center if available
+        let center_pos = 4 * BOARD_SIZE + 4;
+        if (*vector::borrow(board, (center_pos as u64)) == MARK_EMPTY) return (center_pos as u8);
+
+        // Last resort: take any available position
+        let mut pos = 0;
+        while (pos < TOTAL_CELLS) {
+            if (*vector::borrow(board, (pos as u64)) == MARK_EMPTY) return (pos as u8);
+            pos = pos + 1;
+        };
+        
         // Should never reach here in a valid game
         0
+    }
+
+    /// Evaluate move score for a position
+    fun evaluate_move_score(board: &vector<u8>, pos: u8, player: u8): u64 {
+        let board_size = (BOARD_SIZE as u64); // 9
+        let opponent = if (player == MARK_O) { MARK_X } else { MARK_O };
+        let mut score = 0;
+
+        // Position being evaluated
+        let x = (pos as u64) % board_size;
+        let y = (pos as u64) / board_size;
+
+        // Check horizontal direction
+        score = score + evaluate_direction(board, x, y, 1, 0, player, opponent, board_size);
+        // Check vertical direction  
+        score = score + evaluate_direction(board, x, y, 0, 1, player, opponent, board_size);
+        // Check diagonal right
+        score = score + evaluate_direction(board, x, y, 1, 1, player, opponent, board_size);
+        // Check diagonal left
+        score = score + evaluate_direction_left_diag(board, x, y, player, opponent, board_size);
+
+        // Prioritize center
+        let center = 4 * board_size + 4;
+        if ((pos as u64) == center) {
+            score = score + 30;
+        };
+
+        score
+    }
+
+    /// Evaluate score in a specific direction
+    fun evaluate_direction(board: &vector<u8>, x: u64, y: u64, dx: u64, dy: u64, player: u8, opponent: u8, board_size: u64): u64 {
+        let mut count_self = 0;
+        let mut count_oppo = 0;
+
+        // Check positive direction
+        let mut step = 1;
+        while (step < 6) {
+            let nx = x + dx * step;
+            let ny = y + dy * step;
+            if (nx < board_size && ny < board_size) {
+                let idx = ny * board_size + nx;
+                if (*vector::borrow(board, idx) == player) count_self = count_self + 1
+                else if (*vector::borrow(board, idx) == opponent) count_oppo = count_oppo + 1;
+            };
+            step = step + 1;
+        };
+
+        // Check negative direction
+        step = 1;
+        while (step < 6) {
+            let nx = if (x >= dx * step) { x - dx * step } else { 999 };
+            let ny = if (y >= dy * step) { y - dy * step } else { 999 };
+            if (nx < board_size && ny < board_size && nx != 999 && ny != 999) {
+                let idx = ny * board_size + nx;
+                if (*vector::borrow(board, idx) == player) count_self = count_self + 1
+                else if (*vector::borrow(board, idx) == opponent) count_oppo = count_oppo + 1;
+            };
+            step = step + 1;
+        };
+
+        (count_self * count_self * 10) + (count_oppo * count_oppo * 5)
+    }
+
+    /// Evaluate score in left diagonal direction (special case for negative slope)
+    fun evaluate_direction_left_diag(board: &vector<u8>, x: u64, y: u64, player: u8, opponent: u8, board_size: u64): u64 {
+        let mut count_self = 0;
+        let mut count_oppo = 0;
+
+        // Check positive direction (x+1, y-1)
+        let mut step = 1;
+        while (step < 6) {
+            let nx = x + step;
+            let ny = if (y >= step) { y - step } else { 999 };
+            if (nx < board_size && ny < board_size && ny != 999) {
+                let idx = ny * board_size + nx;
+                if (*vector::borrow(board, idx) == player) count_self = count_self + 1
+                else if (*vector::borrow(board, idx) == opponent) count_oppo = count_oppo + 1;
+            };
+            step = step + 1;
+        };
+
+        // Check negative direction (x-1, y+1)
+        step = 1;
+        while (step < 6) {
+            let nx = if (x >= step) { x - step } else { 999 };
+            let ny = y + step;
+            if (nx < board_size && ny < board_size && nx != 999) {
+                let idx = ny * board_size + nx;
+                if (*vector::borrow(board, idx) == player) count_self = count_self + 1
+                else if (*vector::borrow(board, idx) == opponent) count_oppo = count_oppo + 1;
+            };
+            step = step + 1;
+        };
+
+        (count_self * count_self * 10) + (count_oppo * count_oppo * 5)
+    }
+
+    /// Get random move adjacent to existing pieces
+    fun get_random_adjacent_move(board: &vector<u8>, clock: &Clock): u8 {
+        let mut candidate_positions = vector::empty<u8>();
+        let board_size = (BOARD_SIZE as u64); // 9
+
+        let mut i = 0;
+        // Step 1: scan entire board
+        while (i < TOTAL_CELLS) {
+            let cell = *vector::borrow(board, (i as u64));
+            if (cell != MARK_EMPTY) {
+                let x = (i as u64) % board_size;
+                let y = (i as u64) / board_size;
+
+                // Step 2: scan 8 directions around (x, y)
+                let mut check_y = if (y > 0) { y - 1 } else { y };
+                let end_y = if (y + 1 < board_size) { y + 1 } else { y };
+                
+                while (check_y <= end_y) {
+                    let mut check_x = if (x > 0) { x - 1 } else { x };
+                    let end_x = if (x + 1 < board_size) { x + 1 } else { x };
+                    
+                    while (check_x <= end_x) {
+                        if (!(check_x == x && check_y == y)) {
+                            if (check_x < board_size && check_y < board_size) {
+                                let n_idx = check_y * board_size + check_x;
+                                if (*vector::borrow(board, n_idx) == MARK_EMPTY && !vector::contains(&candidate_positions, &(n_idx as u8))) {
+                                    vector::push_back(&mut candidate_positions, (n_idx as u8));
+                                }
+                            }
+                        };
+                        check_x = check_x + 1;
+                    };
+                    check_y = check_y + 1;
+                };
+            };
+            i = i + 1;
+        };
+
+        // If no adjacent positions -> fallback to random on entire board
+        if (vector::is_empty(&candidate_positions)) {
+            return get_random_move(board, clock)
+        };
+
+        let seed = clock::timestamp_ms(clock) % vector::length(&candidate_positions);
+        *vector::borrow(&candidate_positions, seed)
     }
 
     /// Find a winning move for the given player
     fun find_winning_move(board: &vector<u8>, player: u8): u8 {
         let mut pos = 0;
-        while (pos < 9) {
+        while (pos < TOTAL_CELLS) {
             if (*vector::borrow(board, (pos as u64)) == MARK_EMPTY) {
                 // Try this move
                 let mut temp_board = *board;
@@ -415,7 +559,7 @@ module tic_tac_toe::ai_game {
     fun get_random_move(board: &vector<u8>, clock: &Clock): u8 {
         let mut empty_positions = vector::empty<u8>();
         let mut i = 0;
-        while (i < 9) {
+        while (i < TOTAL_CELLS) {
             if (*vector::borrow(board, (i as u64)) == MARK_EMPTY) {
                 vector::push_back(&mut empty_positions, (i as u8));
             };
@@ -428,40 +572,74 @@ module tic_tac_toe::ai_game {
 
     /// Check if a player has won
     fun check_winner(board: &vector<u8>, player: u8): bool {
+        // Check all possible 5-in-a-row combinations
+        
         // Check rows
-        let mut i = 0;
-        while (i < 3) {
-            let row_start = i * 3;
-            if (*vector::borrow(board, (row_start as u64)) == player &&
-                *vector::borrow(board, (row_start + 1 as u64)) == player &&
-                *vector::borrow(board, (row_start + 2 as u64)) == player) {
-                return true
+        let mut row = 0;
+        while (row < BOARD_SIZE) {
+            let mut col = 0;
+            while (col <= BOARD_SIZE - 5) {
+                if (*vector::borrow(board, (row * BOARD_SIZE + col) as u64) == player &&
+                    *vector::borrow(board, (row * BOARD_SIZE + col + 1) as u64) == player &&
+                    *vector::borrow(board, (row * BOARD_SIZE + col + 2) as u64) == player &&
+                    *vector::borrow(board, (row * BOARD_SIZE + col + 3) as u64) == player &&
+                    *vector::borrow(board, (row * BOARD_SIZE + col + 4) as u64) == player) {
+                    return true
+                };
+                col = col + 1;
             };
-            i = i + 1;
+            row = row + 1;
         };
 
         // Check columns
-        i = 0;
-        while (i < 3) {
-            if (*vector::borrow(board, (i as u64)) == player &&
-                *vector::borrow(board, (i + 3 as u64)) == player &&
-                *vector::borrow(board, (i + 6 as u64)) == player) {
-                return true
+        let mut col = 0;
+        while (col < BOARD_SIZE) {
+            let mut row = 0;
+            while (row <= BOARD_SIZE - 5) {
+                if (*vector::borrow(board, (row * BOARD_SIZE + col) as u64) == player &&
+                    *vector::borrow(board, ((row + 1) * BOARD_SIZE + col) as u64) == player &&
+                    *vector::borrow(board, ((row + 2) * BOARD_SIZE + col) as u64) == player &&
+                    *vector::borrow(board, ((row + 3) * BOARD_SIZE + col) as u64) == player &&
+                    *vector::borrow(board, ((row + 4) * BOARD_SIZE + col) as u64) == player) {
+                    return true
+                };
+                row = row + 1;
             };
-            i = i + 1;
+            col = col + 1;
         };
 
-        // Check diagonals
-        if (*vector::borrow(board, 0) == player &&
-            *vector::borrow(board, 4) == player &&
-            *vector::borrow(board, 8) == player) {
-            return true
+        // Check diagonal (top-left to bottom-right)
+        let mut row = 0;
+        while (row <= BOARD_SIZE - 5) {
+            let mut col = 0;
+            while (col <= BOARD_SIZE - 5) {
+                if (*vector::borrow(board, (row * BOARD_SIZE + col) as u64) == player &&
+                    *vector::borrow(board, ((row + 1) * BOARD_SIZE + col + 1) as u64) == player &&
+                    *vector::borrow(board, ((row + 2) * BOARD_SIZE + col + 2) as u64) == player &&
+                    *vector::borrow(board, ((row + 3) * BOARD_SIZE + col + 3) as u64) == player &&
+                    *vector::borrow(board, ((row + 4) * BOARD_SIZE + col + 4) as u64) == player) {
+                    return true
+                };
+                col = col + 1;
+            };
+            row = row + 1;
         };
 
-        if (*vector::borrow(board, 2) == player &&
-            *vector::borrow(board, 4) == player &&
-            *vector::borrow(board, 6) == player) {
-            return true
+        // Check diagonal (top-right to bottom-left)
+        let mut row = 0;
+        while (row <= BOARD_SIZE - 5) {
+            let mut col = 4;
+            while (col < BOARD_SIZE) {
+                if (*vector::borrow(board, (row * BOARD_SIZE + col) as u64) == player &&
+                    *vector::borrow(board, ((row + 1) * BOARD_SIZE + col - 1) as u64) == player &&
+                    *vector::borrow(board, ((row + 2) * BOARD_SIZE + col - 2) as u64) == player &&
+                    *vector::borrow(board, ((row + 3) * BOARD_SIZE + col - 3) as u64) == player &&
+                    *vector::borrow(board, ((row + 4) * BOARD_SIZE + col - 4) as u64) == player) {
+                    return true
+                };
+                col = col + 1;
+            };
+            row = row + 1;
         };
 
         false
@@ -469,16 +647,17 @@ module tic_tac_toe::ai_game {
 
     /// Analyze the winning pattern
     fun analyze_win_pattern(board: &vector<u8>): u8 {
-        // Check if center was used
-        if (*vector::borrow(board, 4) == MARK_X) {
+        // Check if center was used (center of 9x9 board is at position 40: 4*9+4)
+        let center_pos = 4 * BOARD_SIZE + 4;
+        if (*vector::borrow(board, (center_pos as u64)) == MARK_X) {
             return PATTERN_CENTER_CONTROL
         };
 
-        // Check for corner strategy
+        // Check for corner strategy (9x9 corners are at 0, 8, 72, 80)
         let corners_used = (if (*vector::borrow(board, 0) == MARK_X) 1 else 0) +
-                          (if (*vector::borrow(board, 2) == MARK_X) 1 else 0) +
-                          (if (*vector::borrow(board, 6) == MARK_X) 1 else 0) +
-                          (if (*vector::borrow(board, 8) == MARK_X) 1 else 0);
+                          (if (*vector::borrow(board, 8) == MARK_X) 1 else 0) +
+                          (if (*vector::borrow(board, 72) == MARK_X) 1 else 0) +
+                          (if (*vector::borrow(board, 80) == MARK_X) 1 else 0);
 
         if (corners_used >= 2) {
             return PATTERN_CORNER_TRAP
@@ -527,12 +706,12 @@ module tic_tac_toe::ai_game {
     }
 
     /// Get trophy metadata based on rarity and pattern
-    fun get_trophy_metadata(rarity: u8, pattern: u8, difficulty: u8): (String, String, String) {
+    fun get_trophy_metadata(rarity: u8, _pattern: u8, _difficulty: u8): (String, String, String) {
         let name = if (rarity == RARITY_BRONZE) string::utf8(b"Bronze Strategist")
                    else if (rarity == RARITY_SILVER) string::utf8(b"Silver Tactician")
                    else if (rarity == RARITY_GOLD) string::utf8(b"Gold Master")
                    else if (rarity == RARITY_DIAMOND) string::utf8(b"Diamond Genius")
-                   else string::utf8(b"Rainbow Legend");
+                   else string::utf8(b"Legend");
 
         let description = string::utf8(b"Defeated AI in Tic-Tac-Toe with superior strategy");
         let image_url = string::utf8(b"https://api.example.com/trophy/");
