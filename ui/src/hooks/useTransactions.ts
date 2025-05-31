@@ -90,4 +90,26 @@ export class Transactions {
 
         return tx;
     }
+
+    newReversiGame(difficulty: number): Transaction {
+        const tx = new Transaction();
+
+        tx.moveCall({
+            target: `${this.packageId}::reversi_game::new_shared_reversi_game`,
+            arguments: [tx.pure.u8(difficulty), tx.object("0x6")],
+        });
+
+        return tx;
+    }
+
+    reversiPlayerMove(gameId: string, position: number): Transaction {
+        const tx = new Transaction();
+
+        tx.moveCall({
+            target: `${this.packageId}::reversi_game::player_move`,
+            arguments: [tx.object(gameId), tx.pure.u8(position), tx.object("0x6")],
+        });
+
+        return tx;
+    }
 }

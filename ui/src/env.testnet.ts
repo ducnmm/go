@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 const env = {
-    packageId: "0x83a218979272297c5ebba1aa90bf1e49afc786f07d92db803ed29585cc1ef2a9",
-    upgradeCap: "0x808f6afe05e920b7ab451f9d612856581b8647d3f06866fa9290205e106456d6",
+    packageId: "0x5ce7d44e8db4ad841e63333e326083fd965acfd2fda6eaff5b659015a4280d5a",
+    upgradeCap: "0x9c59bf526853e3e8a4ef0b3c4fe3e5c1a0af618fcb8eb5b2d74de7d6c4ac9fee",
 };
 
 export default env;

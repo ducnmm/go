@@ -11,7 +11,9 @@ import { Error } from "components/Error";
 import { IDLink } from "components/IDLink";
 import { Loading } from "components/Loading";
 import { AIGameBoard } from "components/AIGameBoard";
+import { ReversiGameBoard } from "components/ReversiGameBoard";
 import { useAIGameQuery } from "hooks/useAIGameQuery";
+import { useReversiGameQuery } from "hooks/useReversiGameQuery";
 import { Game as GameData, InvalidateGameQuery, Mark, useGameQuery } from "hooks/useGameQuery";
 import { useTransactions } from "hooks/useTransactions";
 import { InvalidateTrophyQuery, Trophy, useTrophyQuery } from "hooks/useTrophyQuery";
@@ -20,6 +22,7 @@ import { ReactElement } from "react";
 
 type Props = {
     id: string;
+    gameType?: "caro" | "reversi";
 };
 
 enum Turn {
@@ -57,21 +60,44 @@ enum Winner {
  * - A button to delete the game.
  * - The ID of the game being played.
  */
-export default function Game({ id }: Props): ReactElement {
+export default function Game({ id, gameType = "caro" }: Props): ReactElement {
     // Call ALL hooks first, before any conditional returns
     const [game, invalidateGame] = useGameQuery(id);
     const [aiGame, _] = useAIGameQuery(id);
+    const [reversiGame, __] = useReversiGameQuery(id);
     const [trophy, invalidateTrophy] = useTrophyQuery(game?.data);
     const account = useCurrentAccount();
 
-    // Handle AI Game
-    if (game.status === "error" && aiGame.status === "success" && aiGame.data) {
+    // Handle AI Game (Caro)
+    if (gameType === "caro" && game.status === "error" && aiGame.status === "success" && aiGame.data) {
         return (
             <AIGameBoard 
                 game={aiGame.data} 
                 currentAccount={account?.address || ""} 
             />
         );
+    }
+
+    // Handle Reversi Game
+    if (gameType === "reversi") {
+        if (reversiGame.status === "pending") {
+            return <Loading />;
+        } else if (reversiGame.status === "error") {
+            return (
+                <Error title="Error loading Reversi game">
+                    Could not load Reversi game at <IDLink id={id} size="2" display="inline-flex" />.
+                    <br />
+                    {reversiGame.error.message}
+                </Error>
+            );
+        } else if (reversiGame.status === "success" && reversiGame.data) {
+            return (
+                <ReversiGameBoard 
+                    game={reversiGame.data} 
+                    currentAccount={account?.address || ""} 
+                />
+            );
+        }
     }
 
     // Handle AI Game loading/error states

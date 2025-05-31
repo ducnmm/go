@@ -161,7 +161,7 @@ function EmptyCell({
                     onMouseEnter={() => setIsHovered(true)}
                     onMouseLeave={() => setIsHovered(false)}
                 >
-                    {isHovered ? "⭕" : ""}
+                    {isHovered ? "🔵" : ""}
                 </Box>
             );
         case Mark._:

@@ -31,7 +31,7 @@ function App() {
                     <FrameIcon width={20} height={20} />
                     <Heading>
                         <Link href="/" className="home">
-                            Tic Tac Toe
+                            Strategy Games
                         </Link>
                     </Heading>
                 </Flex>
@@ -52,14 +52,48 @@ function Content() {
 
     const path = location.pathname.slice(1);
     
-    // Handle /game/objectId format
+    // Handle /caro/objectId format
+    if (path.startsWith("caro/")) {
+        const gameId = path.slice(5); // Remove "caro/" prefix
+        const addr = normalizeSuiObjectId(gameId);
+        console.log("caro game addr", addr)
+        
+        if (isValidSuiObjectId(addr)) {
+            return <Game id={addr} gameType="caro" />;
+        } else {
+            return (
+                <Error title="Invalid Caro Game ID">
+                    <code>"{path}"</code> is not a valid SUI object ID.
+                </Error>
+            );
+        }
+    }
+
+    // Handle /reversi/objectId format
+    if (path.startsWith("reversi/")) {
+        const gameId = path.slice(8); // Remove "reversi/" prefix
+        const addr = normalizeSuiObjectId(gameId);
+        console.log("reversi game addr", addr)
+        
+        if (isValidSuiObjectId(addr)) {
+            return <Game id={addr} gameType="reversi" />;
+        } else {
+            return (
+                <Error title="Invalid Reversi Game ID">
+                    <code>"{path}"</code> is not a valid SUI object ID.
+                </Error>
+            );
+        }
+    }
+    
+    // Handle /game/objectId format (legacy - default to caro)
     if (path.startsWith("game/")) {
         const gameId = path.slice(5); // Remove "game/" prefix
         const addr = normalizeSuiObjectId(gameId);
-        console.log("addr", addr)
+        console.log("legacy game addr", addr)
         
         if (isValidSuiObjectId(addr)) {
-            return <Game id={addr} />;
+            return <Game id={addr} gameType="caro" />;
         } else {
             return (
                 <Error title="Invalid Game ID">
@@ -69,7 +103,7 @@ function Content() {
         }
     }
     
-    // Handle direct object ID
+    // Handle direct object ID (legacy - default to caro)
     const addr = normalizeSuiObjectId(path);
 
     if (packageId === null) {
@@ -86,7 +120,7 @@ function Content() {
     } else if (path === "") {
         return <Root />;
     } else if (isValidSuiObjectId(addr)) {
-        return <Game id={addr} />;
+        return <Game id={addr} gameType="caro" />;
     } else {
         return (
             <Error title="Invalid Game ID">
