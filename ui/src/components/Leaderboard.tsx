@@ -65,7 +65,6 @@ export function Leaderboard() {
                 // For shared games, we count wins from events
                 for (const event of gameEvents.data) {
                     if (event.parsedJson) {
-                        const data = event.parsedJson as any;
                         // Simplified: assume event contains winner info
                         // This would need to be adjusted based on actual event structure
                     }

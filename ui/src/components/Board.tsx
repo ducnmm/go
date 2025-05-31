@@ -143,6 +143,7 @@ function EmptyCell({
                 <Box 
                     style={{
                         ...cellStyle,
+                        ...(isHovered ? hoverStyle : {})
                     }}
                     onClick={onMove}
                     onMouseEnter={() => setIsHovered(true)}
@@ -156,6 +157,7 @@ function EmptyCell({
                 <Box 
                     style={{
                         ...cellStyle,
+                        ...(isHovered ? hoverStyle : {})
                     }}
                     onClick={onMove}
                     onMouseEnter={() => setIsHovered(true)}
