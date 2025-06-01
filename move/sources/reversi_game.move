@@ -1,3 +1,20 @@
+// 1. All AI logic is on-chain and fully public:
+//    - The `calculate_reversi_ai_move` function is the core of the AI.
+//    - The AI's strategic logic is determined by:
+//      - Difficulty level (`difficulty`)
+//      - Current strategy (`strategy`)
+//    - The AI has 2 basic strategies:
+//      - `STRATEGY_CORNER_CONTROL`: Prioritize corner positions
+//      - `STRATEGY_MOBILITY`: Prioritize number of available moves
+
+// 2. Randomness is controlled and predictable:
+//    - The AI occasionally changes its strategy: every time the total number of pieces on the board is divisible by 10, there is a 25% chance to switch strategies.
+//    - For each move:
+//      - Easy: 60% random, 40% best move
+//      - Medium: 30% random, 70% best move
+//      - Hard: 10% random, 90% best move (with random tie-breaking if multiple best moves exist)
+
+
 /// Reversi (Othello) game where the player competes against a smart contract AI.
 /// The player is Black and the AI is White.
 /// Winner receives a Trophy NFT with rarity based on performance.

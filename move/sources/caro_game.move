@@ -1,5 +1,12 @@
-// Copyright (c) Mysten Labs, Inc.
-// SPDX-License-Identifier: Apache-2.0
+// 1.	AI strategy varies based on difficulty:
+// 	-	Easy: 70% chance of making a random nearby move, 30% chance of making the optimal move.
+// 	-	Medium: 30% random move, 70% optimal move.
+// 	-	Hard: 100% optimal move (no randomness).
+// 2.	AI decision-making logic:
+// 	-	First, the AI checks if it can win immediately.
+// 	-	If not, it checks if the player is about to win and blocks that move.
+// 	-	If neither applies, it calculates the best move using a scoring system based on position and patterns.
+// 	-	If there’s no obvious move, it takes the center or any valid cell.
 
 /// Single-player caro game (9x9 with 5 in a row to win) where the player competes against a smart contract AI.
 /// The player is always X and the AI is always O.
