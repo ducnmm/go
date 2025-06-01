@@ -2,6 +2,8 @@
 
 A blockchain-powered strategy games platform built on the Sui Network, featuring classic games like Caro (Tic-Tac-Toe variant) and Reversi with AI opponents and NFT rewards.
 
+https://github.com/user-attachments/assets/31220198-9ccb-4462-9843-042db7ad804e
+
 ## Features
 
 ### 🎮 Multiple Game Types
