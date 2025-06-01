@@ -1,12 +1,9 @@
-// Copyright (c) Mysten Labs, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 import { Container, Heading, Card, Flex, Text, Button, Box, Grid } from "@radix-ui/themes";
 import { useState } from "react";
 import { NewAIGame } from "components/NewAIGame";
 import { NewReversiGame } from "components/NewReversiGame";
-import { Leaderboard } from "components/Leaderboard";
 import { NFTStats } from "components/NFTStats";
+import { Leaderboard } from "components/Leaderboard";
 import { ReactElement } from "react";
 
 /**
@@ -50,16 +47,20 @@ export default function Root(): ReactElement {
     return (
         <Container m="2">
             <Heading size="9" mb="6" align="center">
-                🎮 Choose Your Game
+                Choose Your Game
             </Heading>
             
             <Text size="4" color="gray" mb="6" align="center">
                 Challenge AI opponents in classic strategy games and earn Trophy NFTs!
             </Text>
 
-            {/* NFT Stats and Leaderboard section */}
-            <Grid columns={{ initial: "1", md: "2" }} gap="6" mb="6">
+            {/* NFT Stats section */}
+            <Grid columns="1" gap="6" mb="6" mt="6">
                 <NFTStats />
+            </Grid>
+
+            {/* Leaderboard section */}
+            <Grid columns="1" gap="6" mb="6">
                 <Leaderboard />
             </Grid>
 
@@ -68,7 +69,7 @@ export default function Root(): ReactElement {
                 <Card size="3" style={{ cursor: "pointer" }} onClick={() => setSelectedGame("caro")}>
                     <Flex direction="column" gap="3">
                         <Flex align="center" justify="between">
-                            <Heading size="6">🔴 Caro (Tic-Tac-Toe)</Heading>
+                            <Heading size="6">Caro</Heading>
                             <Text size="2" color="blue">9x9 Board</Text>
                         </Flex>
                         
@@ -96,7 +97,7 @@ export default function Root(): ReactElement {
                 <Card size="3" style={{ cursor: "pointer" }} onClick={() => setSelectedGame("reversi")}>
                     <Flex direction="column" gap="3">
                         <Flex align="center" justify="between">
-                            <Heading size="6">⚫ Reversi (Othello)</Heading>
+                            <Heading size="6">Reversi (Othello)</Heading>
                             <Text size="2" color="purple">8x8 Board</Text>
                         </Flex>
                         
@@ -120,25 +121,6 @@ export default function Root(): ReactElement {
                     </Flex>
                 </Card>
             </Flex>
-
-            {/* Game Features */}
-            <Card size="2" mt="6" style={{ maxWidth: 600, margin: "24px auto 0" }}>
-                <Heading size="4" mb="3" align="center">🏆 Shared Features</Heading>
-                <Flex direction="column" gap="2">
-                    <Flex align="center" gap="2" justify="center">
-                        <Text size="2">🧠 Smart Contract AI with multiple difficulty levels</Text>
-                    </Flex>
-                    <Flex align="center" gap="2" justify="center">
-                        <Text size="2">🏆 Trophy NFTs with rarity based on performance</Text>
-                    </Flex>
-                    <Flex align="center" gap="2" justify="center">
-                        <Text size="2">⚡ Single transaction: your move + AI response</Text>
-                    </Flex>
-                    <Flex align="center" gap="2" justify="center">
-                        <Text size="2">📊 Pattern analysis and win tracking</Text>
-                    </Flex>
-                </Flex>
-            </Card>
         </Container>
     );
 }

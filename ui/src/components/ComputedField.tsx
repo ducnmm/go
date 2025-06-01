@@ -1,6 +1,3 @@
-// Copyright (c) Mysten Labs, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 import "./ComputedField.css";
 
 import { CheckIcon, CopyIcon } from "@radix-ui/react-icons";

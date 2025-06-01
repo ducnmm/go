@@ -1,6 +1,3 @@
-// Copyright (c) Mysten Labs, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 import { useCurrentAccount, useDisconnectWallet, ConnectButton } from "@mysten/dapp-kit";
 import { PersonIcon, StarIcon, ExitIcon } from "@radix-ui/react-icons";
 import { 

@@ -5,7 +5,6 @@ import "./App.css";
 
 import { useCurrentAccount, useSuiClientContext } from "@mysten/dapp-kit";
 import { isValidSuiObjectId, normalizeSuiObjectId } from "@mysten/sui/utils";
-import { FrameIcon } from "@radix-ui/react-icons";
 import { Box, Container, Flex, Heading, Link } from "@radix-ui/themes";
 import { Error } from "components/Error";
 import { CustomConnectButton } from "components/CustomConnectButton";
@@ -28,7 +27,6 @@ function App() {
         <>
             <Flex position="sticky" px="4" py="2" align="center" justify="between">
                 <Flex align="center" gap="1">
-                    <FrameIcon width={20} height={20} />
                     <Heading>
                         <Link href="/" className="home">
                             Strategy Games
@@ -40,7 +38,7 @@ function App() {
                     <CustomConnectButton />
                 </Box>
             </Flex>
-            <Container size="1" mt="8">
+            <Container size="2" mt="8">
                 <Content />
             </Container>
         </>

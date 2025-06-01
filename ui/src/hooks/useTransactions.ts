@@ -1,6 +1,3 @@
-// Copyright (c) Mysten Labs, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 import { Transaction } from "@mysten/sui/transactions";
 import { useNetworkVariable } from "config";
 import { Game } from "hooks/useGameQuery";
@@ -73,7 +70,7 @@ export class Transactions {
         const tx = new Transaction();
 
         tx.moveCall({
-            target: `${this.packageId}::ai_game::new_shared_ai_game`,
+            target: `${this.packageId}::caro_game::new_shared_caro_game`,
             arguments: [tx.pure.u8(difficulty), tx.object("0x6")],
         });
 
@@ -84,7 +81,7 @@ export class Transactions {
         const tx = new Transaction();
 
         tx.moveCall({
-            target: `${this.packageId}::ai_game::player_move`,
+            target: `${this.packageId}::caro_game::player_move`,
             arguments: [tx.object(gameId), tx.pure.u8(position), tx.object("0x6")],
         });
 
@@ -95,8 +92,8 @@ export class Transactions {
         const tx = new Transaction();
 
         tx.moveCall({
-            target: `${this.packageId}::reversi_game::new_shared_reversi_game`,
-            arguments: [tx.pure.u8(difficulty), tx.object("0x6")],
+            target: `${this.packageId}::reversi_game::new_reversi_game`,
+            arguments: [tx.pure.u8(difficulty), tx.object("0x8"), tx.object("0x6")],
         });
 
         return tx;
@@ -106,10 +103,10 @@ export class Transactions {
         const tx = new Transaction();
 
         tx.moveCall({
-            target: `${this.packageId}::reversi_game::player_move`,
-            arguments: [tx.object(gameId), tx.pure.u8(position), tx.object("0x6")],
+            target: `${this.packageId}::reversi_game::reversi_player_move`,
+            arguments: [tx.object(gameId), tx.pure.u8(position), tx.object("0x8"), tx.object("0x6")],
         });
 
-        return tx;
+        return tx;  
     }
 }

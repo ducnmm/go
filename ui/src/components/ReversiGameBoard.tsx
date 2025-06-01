@@ -1,6 +1,3 @@
-// Copyright (c) Mysten Labs, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 import { useState } from "react";
 import { useTransactions } from "hooks/useTransactions";
 import { useExecutor } from "mutations/useExecutor";

@@ -1,6 +1,3 @@
-// Copyright (c) Mysten Labs, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
 import { Callout, Container, Strong } from "@radix-ui/themes";
 import { ReactElement, ReactNode } from "react";

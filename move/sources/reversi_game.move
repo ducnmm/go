@@ -1,9 +1,7 @@
-// Copyright (c) Mysten Labs, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 /// Reversi (Othello) game where the player competes against a smart contract AI.
 /// The player is Black and the AI is White.
 /// Winner receives a Trophy NFT with rarity based on performance.
+/// Now uses Sui's Random API for unpredictable and secure AI behavior.
 #[allow(duplicate_alias)]
 module tic_tac_toe::reversi_game {
     
@@ -15,6 +13,7 @@ module tic_tac_toe::reversi_game {
     use sui::clock::{Self, Clock};
     use std::string::{Self, String};
     use sui::event;
+    use sui::random::{Self, Random, RandomGenerator};
 
     // === Errors ===
     const EInvalidMove: u64 = 0;
@@ -22,8 +21,7 @@ module tic_tac_toe::reversi_game {
     const ENotPlayerTurn: u64 = 2;
     const EInvalidPosition: u64 = 3;
     const EInvalidDifficulty: u64 = 4;
-    const EGameNotFinished: u64 = 5;
-    const ENoValidMove: u64 = 6;
+    const ENoValidMoves: u64 = 5;
 
     // === Constants ===
     // Board size (8x8 for Reversi)
@@ -52,9 +50,7 @@ module tic_tac_toe::reversi_game {
 
     // Strategy patterns
     const STRATEGY_CORNER_CONTROL: u8 = 1;
-    const STRATEGY_EDGE_AVOIDING: u8 = 2;
     const STRATEGY_MOBILITY: u8 = 3;
-    const STRATEGY_DEFENSIVE: u8 = 4;
 
     // === Structs ===
 
@@ -72,6 +68,7 @@ module tic_tac_toe::reversi_game {
         player_move_times: vector<u64>, // Track thinking time for each move
         valid_moves_count: u8, // Number of valid moves available
         consecutive_passes: u8, // Track consecutive passes
+        ai_strategy: u8,  // Current AI strategy (changes randomly)
     }
 
     /// Trophy NFT sent to the winner
@@ -112,6 +109,7 @@ module tic_tac_toe::reversi_game {
         position: u8,
         pieces_flipped: u8,
         difficulty: u8,
+        strategy: u8,
     }
 
     public struct ReversiGameFinished has copy, drop {
@@ -133,8 +131,16 @@ module tic_tac_toe::reversi_game {
     // === Public Functions ===
 
     /// Create a new Reversi AI game
-    public fun new_reversi_game(difficulty: u8, clock: &Clock, ctx: &mut TxContext): ReversiGame {
+    entry fun new_reversi_game(
+        difficulty: u8, 
+        r: &Random,
+        clock: &Clock, 
+        ctx: &mut TxContext
+    ) {
         assert!(difficulty >= DIFFICULTY_EASY && difficulty <= DIFFICULTY_HARD, EInvalidDifficulty);
+        
+        let mut generator = random::new_generator(r, ctx);
+        let initial_strategy = select_random_reversi_strategy(&mut generator, difficulty);
         
         let mut board = vector::empty<u8>();
         let mut i = 0;
@@ -163,6 +169,7 @@ module tic_tac_toe::reversi_game {
             player_move_times: vector::empty<u64>(),
             valid_moves_count: 4, // Initial valid moves for player
             consecutive_passes: 0,
+            ai_strategy: initial_strategy,
         };
 
         event::emit(ReversiGameCreated {
@@ -172,19 +179,14 @@ module tic_tac_toe::reversi_game {
             timestamp,
         });
 
-        game
+        transfer::share_object(game);
     }
 
-    /// Create a new shared Reversi AI game
-    #[allow(lint(share_owned))]
-    public fun new_shared_reversi_game(difficulty: u8, clock: &Clock, ctx: &mut TxContext) {
-        transfer::share_object(new_reversi_game(difficulty, clock, ctx));
-    }
-
-    /// Player makes a move (player is Black)
-    public fun player_move(
+    /// Player makes a move - SECURE ENTRY POINT
+    entry fun reversi_player_move(
         game: &mut ReversiGame,
         position: u8,
+        r: &Random,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
@@ -249,73 +251,11 @@ module tic_tac_toe::reversi_game {
             return // IMPORTANT: Return here to prevent AI move
         };
 
-        // Check if AI has valid moves
-        if (!has_valid_moves(&game.board, MARK_WHITE)) {
-            // AI passes, check if player also can't move
-            if (!has_valid_moves(&game.board, MARK_BLACK)) {
-                // Game ends - check winner and award trophy
-                if (game.player_pieces > game.ai_pieces) {
-                    game.game_status = GAME_PLAYER_WIN;
-                    award_reversi_trophy(game, current_time, ctx);
-                } else if (game.ai_pieces > game.player_pieces) {
-                    game.game_status = GAME_AI_WIN;
-                } else {
-                    game.game_status = GAME_DRAW;
-                };
+        // Switch to AI turn
+        game.turn = 1;
 
-                event::emit(ReversiGameFinished {
-                    game_id: object::id(game),
-                    winner: game.game_status,
-                    player_score: game.player_pieces,
-                    ai_score: game.ai_pieces,
-                    total_time: current_time - game.start_time,
-                });
-                return
-            };
-            // AI passes, player continues
-            return
-        };
-
-        // AI makes a move
-        let ai_position = calculate_ai_move(&game.board, game.difficulty, clock);
-        let ai_flipped = get_flipped_pieces(&game.board, ai_position, MARK_WHITE);
-        
-        *vector::borrow_mut(&mut game.board, (ai_position as u64)) = MARK_WHITE;
-        flip_pieces(&mut game.board, &ai_flipped, MARK_WHITE);
-
-        let ai_pieces_flipped = (vector::length(&ai_flipped) as u8);
-        game.ai_pieces = game.ai_pieces + 1 + ai_pieces_flipped;
-        game.player_pieces = game.player_pieces - ai_pieces_flipped;
-
-        event::emit(ReversiAIMoveMade {
-            game_id: object::id(game),
-            position: ai_position,
-            pieces_flipped: ai_pieces_flipped,
-            difficulty: game.difficulty,
-        });
-
-        // Check game end conditions after AI move
-        if (game.player_pieces + game.ai_pieces == TOTAL_CELLS ||
-            !has_valid_moves(&game.board, MARK_BLACK)) {
-            
-            // Determine winner and award trophy if player wins
-            if (game.player_pieces > game.ai_pieces) {
-                game.game_status = GAME_PLAYER_WIN;
-                award_reversi_trophy(game, current_time, ctx);
-            } else if (game.ai_pieces > game.player_pieces) {
-                game.game_status = GAME_AI_WIN;
-            } else {
-                game.game_status = GAME_DRAW;
-            };
-
-            event::emit(ReversiGameFinished {
-                game_id: object::id(game),
-                winner: game.game_status,
-                player_score: game.player_pieces,
-                ai_score: game.ai_pieces,
-                total_time: current_time - game.start_time,
-            });
-        };
+        // AI makes a move immediately
+        ai_move_reversi(game, r, clock, ctx);
     }
 
     /// Award trophy to winning player
@@ -361,66 +301,188 @@ module tic_tac_toe::reversi_game {
 
     // === AI Logic ===
 
-    /// Calculate AI move based on difficulty (SIMPLIFIED for performance)
-    fun calculate_ai_move(board: &vector<u8>, difficulty: u8, clock: &Clock): u8 {
-        if (difficulty == DIFFICULTY_EASY) {
-            // Easy: Always random
-            get_random_valid_move(board, MARK_WHITE, clock)
-        } else if (difficulty == DIFFICULTY_MEDIUM) {
-            // Medium: Try corners first, then random
-            get_corner_or_random_move(board, MARK_WHITE, clock)
-        } else {
-            // Hard: Simple greedy (most flips)
-            get_greedy_move(board, MARK_WHITE)
+    /// AI makes a move using secure randomness
+    fun ai_move_reversi(
+        game: &mut ReversiGame, 
+        r: &Random,
+        clock: &Clock, 
+        ctx: &mut TxContext
+    ) {
+        let mut generator = random::new_generator(r, ctx);
+        
+        // Randomly adjust strategy occasionally
+        if (should_change_reversi_strategy(&mut generator, game.player_pieces + game.ai_pieces)) {
+            game.ai_strategy = select_random_reversi_strategy(&mut generator, game.difficulty);
+        };
+
+        // Find valid moves
+        let valid_moves = get_all_valid_moves(&game.board, MARK_WHITE);
+        
+        if (vector::is_empty(&valid_moves)) {
+            // AI must pass
+            game.consecutive_passes = game.consecutive_passes + 1;
+            game.turn = 0; // Back to player
+            
+            // Check if game ends (both players pass or board full)
+            if (game.consecutive_passes >= 2 || game.player_pieces + game.ai_pieces == TOTAL_CELLS) {
+                if (game.player_pieces > game.ai_pieces) {
+                    game.game_status = GAME_PLAYER_WIN;
+                    award_reversi_trophy(game, clock::timestamp_ms(clock), ctx);
+                } else if (game.ai_pieces > game.player_pieces) {
+                    game.game_status = GAME_AI_WIN;
+                } else {
+                    game.game_status = GAME_DRAW;
+                };
+
+                event::emit(ReversiGameFinished {
+                    game_id: object::id(game),
+                    winner: game.game_status,
+                    player_score: game.player_pieces,
+                    ai_score: game.ai_pieces,
+                    total_time: clock::timestamp_ms(clock) - game.start_time,
+                });
+            };
+            return
+        };
+
+        // Select AI move with randomness - FIXED: Add safety check
+        let ai_position = calculate_reversi_ai_move(&game.board, &valid_moves, game.difficulty, game.ai_strategy, &mut generator);
+        
+        // Make AI move
+        let flipped = get_flipped_pieces(&game.board, ai_position, MARK_WHITE);
+        *vector::borrow_mut(&mut game.board, (ai_position as u64)) = MARK_WHITE;
+        flip_pieces(&mut game.board, &flipped, MARK_WHITE);
+        
+        // Update piece counts
+        let pieces_flipped = (vector::length(&flipped) as u8);
+        game.ai_pieces = game.ai_pieces + 1 + pieces_flipped;
+        game.player_pieces = game.player_pieces - pieces_flipped;
+
+        event::emit(ReversiAIMoveMade {
+            game_id: object::id(game),
+            position: ai_position,
+            pieces_flipped,
+            difficulty: game.difficulty,
+            strategy: game.ai_strategy,
+        });
+
+        // Reset consecutive passes and switch to player
+        game.consecutive_passes = 0;
+        game.turn = 0;
+
+        // Check if AI won
+        if (game.player_pieces + game.ai_pieces == TOTAL_CELLS || 
+            !has_valid_moves(&game.board, MARK_BLACK)) {
+            
+            if (game.ai_pieces > game.player_pieces) {
+                game.game_status = GAME_AI_WIN;
+            } else if (game.player_pieces > game.ai_pieces) {
+                game.game_status = GAME_PLAYER_WIN;
+                award_reversi_trophy(game, clock::timestamp_ms(clock), ctx);
+            } else {
+                game.game_status = GAME_DRAW;
+            };
+
+            event::emit(ReversiGameFinished {
+                game_id: object::id(game),
+                winner: game.game_status,
+                player_score: game.player_pieces,
+                ai_score: game.ai_pieces,
+                total_time: clock::timestamp_ms(clock) - game.start_time,
+            });
+        };
+    }
+
+    /// Select random strategy for Reversi AI
+    fun select_random_reversi_strategy(generator: &mut RandomGenerator, difficulty: u8): u8 {
+        let rand_val = random::generate_u8_in_range(generator, 1, 101);
+        
+        match (difficulty) {
+            DIFFICULTY_EASY => {
+                if (rand_val <= 70) STRATEGY_MOBILITY
+                else STRATEGY_CORNER_CONTROL
+            },
+            DIFFICULTY_MEDIUM => {
+                if (rand_val <= 50) STRATEGY_CORNER_CONTROL
+                else STRATEGY_MOBILITY
+            },
+            DIFFICULTY_HARD => {
+                if (rand_val <= 40) STRATEGY_CORNER_CONTROL
+                else STRATEGY_MOBILITY
+            },
+            _ => STRATEGY_MOBILITY
         }
     }
 
-    /// Get corner move or random (for medium difficulty)
-    fun get_corner_or_random_move(board: &vector<u8>, player: u8, clock: &Clock): u8 {
-        // Check corners first (0, 7, 56, 63)
-        let corners = vector[0, 7, 56, 63];
-        let mut i = 0;
-        while (i < vector::length(&corners)) {
-            let corner = *vector::borrow(&corners, i);
-            if (*vector::borrow(board, (corner as u64)) == MARK_EMPTY) {
-                let flipped = get_flipped_pieces(board, corner, player);
-                if (vector::length(&flipped) > 0) {
-                    return corner
-                };
-            };
-            i = i + 1;
-        };
-        
-        // No corner available, get random
-        get_random_valid_move(board, player, clock)
+    /// Determine if AI should change strategy
+    fun should_change_reversi_strategy(generator: &mut RandomGenerator, total_pieces: u8): bool {
+        // Change strategy every 8-12 pieces with some probability
+        if (total_pieces % 10 == 0) {
+            let chance = random::generate_u8_in_range(generator, 1, 101);
+            chance <= 25 // 25% chance to change strategy
+        } else {
+            false
+        }
     }
 
-    /// Get greedy move (most pieces flipped) - SIMPLE VERSION
-    fun get_greedy_move(board: &vector<u8>, player: u8): u8 {
-        let mut best_position = 255;
-        let mut best_flips = 0;
+    /// Calculate AI move for Reversi with randomness - FIXED
+    fun calculate_reversi_ai_move(
+        board: &vector<u8>,
+        valid_moves: &vector<u8>,
+        difficulty: u8,
+        _strategy: u8,
+        generator: &mut RandomGenerator
+    ): u8 {
+        // SAFETY CHECK: Ensure we have valid moves
+        assert!(!vector::is_empty(valid_moves), ENoValidMoves);
         
-        // Only check a limited number of positions to avoid timeout
-        let mut pos = 0;
-        while (pos < TOTAL_CELLS && pos < 40) { // Limit to first 40 positions
-            if (*vector::borrow(board, (pos as u64)) == MARK_EMPTY) {
-                let flipped = get_flipped_pieces(board, pos, player);
-                let flip_count = vector::length(&flipped);
-                if (flip_count > 0) {
-                    if (flip_count > best_flips || best_position == 255) {
-                        best_flips = flip_count;
-                        best_position = pos;
-                    };
-                };
-            };
-            pos = pos + 1;
-        };
-
-        if (best_position == 255) {
-            // Fallback to first valid move
-            get_first_valid_move(board, player)
-        } else {
-            best_position
+        match (difficulty) {
+            DIFFICULTY_EASY => {
+                // 60% random, 40% best
+                let decision = random::generate_u8_in_range(generator, 1, 101);
+                if (decision <= 60) {
+                    // FIXED: Safe random selection
+                    let len = vector::length(valid_moves);
+                    let random_val = random::generate_u64(generator);
+                    let idx = random_val % len;
+                    *vector::borrow(valid_moves, idx)
+                } else {
+                    find_best_reversi_move(board, valid_moves)
+                }
+            },
+            DIFFICULTY_MEDIUM => {
+                // 30% random, 70% best
+                let decision = random::generate_u8_in_range(generator, 1, 101);
+                if (decision <= 30) {
+                    // FIXED: Safe random selection
+                    let len = vector::length(valid_moves);
+                    let random_val = random::generate_u64(generator);
+                    let idx = random_val % len;
+                    *vector::borrow(valid_moves, idx)
+                } else {
+                    find_best_reversi_move(board, valid_moves)
+                }
+            },
+            DIFFICULTY_HARD => {
+                // 10% random, 90% best (with random tie-breaking)
+                let decision = random::generate_u8_in_range(generator, 1, 101);
+                if (decision <= 10) {
+                    // FIXED: Safe random selection
+                    let len = vector::length(valid_moves);
+                    let random_val = random::generate_u64(generator);
+                    let idx = random_val % len;
+                    *vector::borrow(valid_moves, idx)
+                } else {
+                    find_best_reversi_move_with_random_tiebreak(board, valid_moves, generator)
+                }
+            },
+            _ => {
+                // FIXED: Safe random selection for default case
+                let len = vector::length(valid_moves);
+                let random_val = random::generate_u64(generator);
+                let idx = random_val % len;
+                *vector::borrow(valid_moves, idx)
+            }
         }
     }
 
@@ -449,8 +511,8 @@ module tic_tac_toe::reversi_game {
         false
     }
 
-    /// Get random valid move
-    fun get_random_valid_move(board: &vector<u8>, player: u8, clock: &Clock): u8 {
+    /// Get all valid moves for a player
+    fun get_all_valid_moves(board: &vector<u8>, player: u8): vector<u8> {
         let mut valid_moves = vector::empty<u8>();
         
         let mut pos = 0;
@@ -464,32 +526,77 @@ module tic_tac_toe::reversi_game {
             pos = pos + 1;
         };
         
-        if (vector::length(&valid_moves) == 0) {
-            return 255 // No valid moves
-        };
-        
-        let rand_idx = clock::timestamp_ms(clock) % vector::length(&valid_moves);
-        *vector::borrow(&valid_moves, rand_idx)
+        valid_moves
     }
 
-    /// Get first valid move
-    fun get_first_valid_move(board: &vector<u8>, player: u8): u8 {
-        let mut pos = 0;
-        while (pos < TOTAL_CELLS) {
-            if (*vector::borrow(board, (pos as u64)) == MARK_EMPTY) {
-                let flipped = get_flipped_pieces(board, pos, player);
-                if (vector::length(&flipped) > 0) {
-                    return pos
+    /// Get pieces that would be flipped by a move
+    fun get_flipped_pieces(board: &vector<u8>, position: u8, player: u8): vector<u8> {
+        let mut flipped = vector::empty<u8>();
+        let opponent = if (player == MARK_WHITE) { MARK_BLACK } else { MARK_WHITE };
+        
+        let x = position % BOARD_SIZE;
+        let y = position / BOARD_SIZE;
+        
+        // Check all 8 directions (dx, dy)
+        let mut dir_idx = 0;
+        while (dir_idx < 8) {
+            let mut temp_flipped = vector::empty<u8>();
+            
+            let (dx, dy) = if (dir_idx == 0) { (255, 255) } // (-1, -1) using u8 wraparound
+                else if (dir_idx == 1) { (255, 0) }   // (-1, 0)
+                else if (dir_idx == 2) { (255, 1) }   // (-1, 1)
+                else if (dir_idx == 3) { (0, 255) }   // (0, -1)
+                else if (dir_idx == 4) { (0, 1) }     // (0, 1)
+                else if (dir_idx == 5) { (1, 255) }   // (1, -1)
+                else if (dir_idx == 6) { (1, 0) }     // (1, 0)
+                else { (1, 1) };                      // (1, 1)
+            
+            let mut nx = x;
+            let mut ny = y;
+            
+            // Move in direction
+            loop {
+                // Calculate next position with bounds checking
+                if (dx == 255) { // -1
+                    if (nx == 0) break;
+                    nx = nx - 1;
+                } else if (dx == 1) {
+                    nx = nx + 1;
+                    if (nx >= BOARD_SIZE) break;
+                };
+                
+                if (dy == 255) { // -1
+                    if (ny == 0) break;
+                    ny = ny - 1;
+                } else if (dy == 1) {
+                    ny = ny + 1;
+                    if (ny >= BOARD_SIZE) break;
+                };
+                
+                let next_pos = ny * BOARD_SIZE + nx;
+                let piece = *vector::borrow(board, (next_pos as u64));
+                
+                if (piece == opponent) {
+                    vector::push_back(&mut temp_flipped, next_pos);
+                } else if (piece == player) {
+                    // Found our piece, add all temp_flipped to result
+                    vector::append(&mut flipped, temp_flipped);
+                    break
+                } else {
+                    // Empty cell, no flip in this direction
+                    break
                 };
             };
-            pos = pos + 1;
+            
+            dir_idx = dir_idx + 1;
         };
-        255 // No valid moves
+        
+        flipped
     }
 
     // === Helper Functions ===
 
-    /// Analyze winning strategy pattern
+    /// Analyze the winning strategy pattern
     fun analyze_strategy_pattern(board: &vector<u8>): u8 {
         let mut corner_count = 0;
         let corners = vector[0, 7, 56, 63];
@@ -525,7 +632,7 @@ module tic_tac_toe::reversi_game {
     fun calculate_reversi_trophy_rarity(
         score_diff: u8,
         difficulty: u8,
-        strategy: u8,
+        _strategy: u8,  // Prefixed with underscore
         thinking_time: u64
     ): u8 {
         let mut base_rarity = RARITY_BRONZE;
@@ -572,15 +679,7 @@ module tic_tac_toe::reversi_game {
     }
 
     /// Get trophy description
-    fun get_trophy_description(rarity: u8, score_diff: u8, difficulty: u8): String {
-        let diff_text = if (difficulty == DIFFICULTY_HARD) {
-            b"Hard AI"
-        } else if (difficulty == DIFFICULTY_MEDIUM) {
-            b"Medium AI"
-        } else {
-            b"Easy AI"
-        };
-        
+    fun get_trophy_description(rarity: u8, _score_diff: u8, _difficulty: u8): String {
         if (rarity == RARITY_DIAMOND) {
             string::utf8(b"Legendary Reversi mastery - dominated the battlefield with supreme strategy!")
         } else {
@@ -601,72 +700,64 @@ module tic_tac_toe::reversi_game {
         }
     }
 
-    /// Get pieces that would be flipped by a move
-    fun get_flipped_pieces(board: &vector<u8>, position: u8, player: u8): vector<u8> {
-        let mut flipped = vector::empty<u8>();
-        let opponent = if (player == MARK_WHITE) { MARK_BLACK } else { MARK_WHITE };
+    /// Find best move among valid moves (most pieces flipped) - FIXED
+    fun find_best_reversi_move(board: &vector<u8>, valid_moves: &vector<u8>): u8 {
+        // SAFETY CHECK: Ensure we have valid moves
+        assert!(!vector::is_empty(valid_moves), ENoValidMoves);
         
-        let x = position % BOARD_SIZE;
-        let y = position / BOARD_SIZE;
+        let mut best_move = *vector::borrow(valid_moves, 0);
+        let mut best_flips = 0;
         
-        // Check all 8 directions (dx, dy)
-        let mut dir_idx = 0;
-        while (dir_idx < 8) {
-            let mut temp_flipped = vector::empty<u8>();
+        let mut i = 0;
+        while (i < vector::length(valid_moves)) {
+            let move_pos = *vector::borrow(valid_moves, i);
+            let flipped = get_flipped_pieces(board, move_pos, MARK_WHITE);
+            let flip_count = vector::length(&flipped);
             
-            let (dx, dy) = if (dir_idx == 0) { (255, 255) } // (-1, -1) using u8 wraparound
-                else if (dir_idx == 1) { (255, 0) }   // (-1, 0)
-                else if (dir_idx == 2) { (255, 1) }   // (-1, 1)
-                else if (dir_idx == 3) { (0, 255) }   // (0, -1)
-                else if (dir_idx == 4) { (0, 1) }     // (0, 1)
-                else if (dir_idx == 5) { (1, 255) }   // (1, -1)
-                else if (dir_idx == 6) { (1, 0) }     // (1, 0)
-                else { (1, 1) };                      // (1, 1)
-            
-            let mut nx = x;
-            let mut ny = y;
-            let mut valid_direction = true;
-            
-            // Move in direction
-            loop {
-                // Calculate next position with bounds checking
-                if (dx == 255) { // -1
-                    if (nx == 0) { valid_direction = false; break };
-                    nx = nx - 1;
-                } else if (dx == 1) {
-                    nx = nx + 1;
-                    if (nx >= BOARD_SIZE) { valid_direction = false; break };
-                };
-                
-                if (dy == 255) { // -1
-                    if (ny == 0) { valid_direction = false; break };
-                    ny = ny - 1;
-                } else if (dy == 1) {
-                    ny = ny + 1;
-                    if (ny >= BOARD_SIZE) { valid_direction = false; break };
-                };
-                
-                if (!valid_direction) break;
-                
-                let next_pos = ny * BOARD_SIZE + nx;
-                let piece = *vector::borrow(board, (next_pos as u64));
-                
-                if (piece == opponent) {
-                    vector::push_back(&mut temp_flipped, next_pos);
-                } else if (piece == player) {
-                    // Found our piece, add all temp_flipped to result
-                    vector::append(&mut flipped, temp_flipped);
-                    break
-                } else {
-                    // Empty cell, no flip in this direction
-                    break
-                };
+            if (flip_count > best_flips) {
+                best_flips = flip_count;
+                best_move = move_pos;
             };
             
-            dir_idx = dir_idx + 1;
+            i = i + 1;
         };
         
-        flipped
+        best_move
+    }
+
+    /// Find best move with random tie-breaking - FIXED
+    fun find_best_reversi_move_with_random_tiebreak(board: &vector<u8>, valid_moves: &vector<u8>, generator: &mut RandomGenerator): u8 {
+        // SAFETY CHECK: Ensure we have valid moves
+        assert!(!vector::is_empty(valid_moves), ENoValidMoves);
+        
+        let mut best_moves = vector::empty<u8>();
+        let mut best_flips = 0;
+        
+        let mut i = 0;
+        while (i < vector::length(valid_moves)) {
+            let move_pos = *vector::borrow(valid_moves, i);
+            let flipped = get_flipped_pieces(board, move_pos, MARK_WHITE);
+            let flip_count = vector::length(&flipped);
+            
+            if (flip_count > best_flips) {
+                best_moves = vector::empty<u8>();
+                vector::push_back(&mut best_moves, move_pos);
+                best_flips = flip_count;
+            } else if (flip_count == best_flips) {
+                vector::push_back(&mut best_moves, move_pos);
+            };
+            
+            i = i + 1;
+        };
+        
+        // Randomly select from best moves - FIXED
+        if (vector::length(&best_moves) > 1) {
+            let random_val = random::generate_u64(generator);
+            let idx = random_val % vector::length(&best_moves);
+            *vector::borrow(&best_moves, idx)
+        } else {
+            *vector::borrow(&best_moves, 0)
+        }
     }
 
     // === Getters ===

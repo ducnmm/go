@@ -1,6 +1,3 @@
-// Copyright (c) Mysten Labs, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 import { useState } from "react";
 import { useTransactions } from "hooks/useTransactions";
 import { useExecutor } from "mutations/useExecutor";
@@ -10,11 +7,11 @@ import {
     Flex, 
     Heading, 
     Text, 
+    Select, 
+    Box, 
     Separator,
-    Badge,
-    Box,
     Strong,
-    Select
+    Badge
 } from "@radix-ui/themes";
 import { GearIcon, StarIcon, LightningBoltIcon } from "@radix-ui/react-icons";
 
@@ -108,7 +105,7 @@ export function NewReversiGame() {
                     {/* Header */}
                     <Flex align="center" gap="3">
                         <Heading size="6" weight="bold" mb="3">
-                            Reversi Challenge
+                            ⚫ Reversi Challenge
                         </Heading>
                     </Flex>
 
@@ -121,7 +118,7 @@ export function NewReversiGame() {
                     {/* Difficulty Selection */}
                     <Box>
                         <Text size="3" weight="bold" mb="3">
-                            🎯 Choose Difficulty
+                            Choose Difficulty
                         </Text>
                         
                         <Select.Root value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
@@ -131,9 +128,6 @@ export function NewReversiGame() {
                                     <Select.Item key={option.value} value={option.value}>
                                         <Flex align="center" gap="2">
                                             <Text>{option.label}</Text>
-                                            <Badge color={option.color} size="1">
-                                                {option.winRate}
-                                            </Badge>
                                         </Flex>
                                     </Select.Item>
                                 ))}
@@ -144,8 +138,6 @@ export function NewReversiGame() {
                             <Box mt="3" p="3" style={{ backgroundColor: "var(--gray-2)", borderRadius: "8px" }}>
                                 <Text size="2" color="gray">
                                     <Strong>{selectedDifficultyInfo.label}</Strong>: {selectedDifficultyInfo.description}
-                                    <br />
-                                    Expected win rate: <Strong>{selectedDifficultyInfo.winRate}</Strong>
                                 </Text>
                             </Box>
                         )}

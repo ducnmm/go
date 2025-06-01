@@ -1,6 +1,3 @@
-// Copyright (c) Mysten Labs, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 import { useSuiClientContext, useSuiClientQuery, UseSuiClientQueryOptions } from "@mysten/dapp-kit";
 import { GetObjectParams, SuiObjectResponse } from "@mysten/sui/client";
 import { useQueryClient, UseQueryResult } from "@tanstack/react-query";

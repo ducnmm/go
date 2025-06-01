@@ -1,6 +1,3 @@
-// Copyright (c) Mysten Labs, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 import { useState } from "react";
 import { useTransactions } from "hooks/useTransactions";
 import { useExecutor } from "mutations/useExecutor";
@@ -10,11 +7,11 @@ import {
     Flex, 
     Heading, 
     Text, 
+    Select, 
+    Box, 
     Separator,
-    Badge,
-    Box,
     Strong,
-    Select
+    Badge
 } from "@radix-ui/themes";
 import { GearIcon, StarIcon, LightningBoltIcon } from "@radix-ui/react-icons";
 
@@ -43,11 +40,11 @@ const DIFFICULTY_OPTIONS = [
 ];
 
 const TROPHY_TIERS = [
-    { rarity: "🥉 Bronze", condition: "Win in 10-12 moves", color: "#CD7F32" },
-    { rarity: "🥈 Silver", condition: "Win in 8-9 moves", color: "#C0C0C0" },
-    { rarity: "🥇 Gold", condition: "Win in 6-7 moves", color: "#FFD700" },
-    { rarity: "💎 Diamond", condition: "Win in 5 moves + bonuses", color: "#B9F2FF" },
-    { rarity: "🌈 Rainbow", condition: "Legendary streaks", color: "#FF6B6B" }
+    { rarity: "🥉 Bronze", condition: "Win in 7+ player moves", color: "#CD7F32" },
+    { rarity: "🥈 Silver", condition: "Win in 6 player moves", color: "#C0C0C0" },
+    { rarity: "🥇 Gold", condition: "Win in 5 player moves (fastest!)", color: "#FFD700" },
+    { rarity: "💎 Diamond", condition: "Gold + difficulty + speed bonuses", color: "#B9F2FF" },
+    // { rarity: "🌈 Rainbow", condition: "Legendary streaks", color: "#FF6B6B" }
 ];
 
 export function NewAIGame() {
@@ -114,7 +111,8 @@ export function NewAIGame() {
                     </Flex>
 
                     <Text size="4" color="gray" mb="4">
-                        Play Caro (9x9 board, 5 in a row to win) against smart contract AI and earn Trophy NFTs based on your performance!
+                        Play Caro (9x9 board, 5 in a row to win) against smart contract AI and earn Trophy NFTs! 
+                        Trophy rarity is based on how few moves YOU need to win (not counting AI moves).
                     </Text>
 
                     <Separator />
@@ -122,7 +120,7 @@ export function NewAIGame() {
                     {/* Difficulty Selection */}
                     <Box>
                         <Text size="3" weight="bold" mb="3">
-                            🎯 Choose Difficulty
+                            Choose Difficulty
                         </Text>
                         
                         <Select.Root value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
@@ -132,9 +130,6 @@ export function NewAIGame() {
                                     <Select.Item key={option.value} value={option.value}>
                                         <Flex align="center" gap="2">
                                             <Text>{option.label}</Text>
-                                            <Badge color={option.color} size="1">
-                                                {option.winRate}
-                                            </Badge>
                                         </Flex>
                                     </Select.Item>
                                 ))}
@@ -146,7 +141,6 @@ export function NewAIGame() {
                                 <Text size="2" color="gray">
                                     <Strong>{selectedDifficultyInfo.label}</Strong>: {selectedDifficultyInfo.description}
                                     <br />
-                                    Expected win rate: <Strong>{selectedDifficultyInfo.winRate}</Strong>
                                 </Text>
                             </Box>
                         )}
@@ -166,7 +160,7 @@ export function NewAIGame() {
                         <Box>
                             {TROPHY_TIERS.map((trophy, index) => (
                                 <Flex key={index} justify="between" align="center" py="2">
-                                    <Text size="2">{trophy.rarity}</Text>
+                                    {/* <Text size="2">{trophy.rarity}</Text> */}
                                     <Text size="2" color="gray">{trophy.condition}</Text>
                                 </Flex>
                             ))}
@@ -176,7 +170,8 @@ export function NewAIGame() {
                             <Flex align="center" gap="2">
                                 <LightningBoltIcon width="14" height="14" />
                                 <Text size="2" color="blue">
-                                    <Strong>Bonus:</Strong> Fast thinking (&lt;5s) upgrades trophy rarity!
+                                    <Strong>Bonus factors:</Strong> Harder difficulty (+1-2), fast thinking (&lt;5s total, +1), 
+                                    and special win patterns (+1) all upgrade trophy rarity!
                                 </Text>
                             </Flex>
                         </Box>

@@ -1,6 +1,3 @@
-// Copyright (c) Mysten Labs, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 import "./Game.css";
 
 import { useCurrentAccount } from "@mysten/dapp-kit";

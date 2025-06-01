@@ -1,6 +1,3 @@
-// Copyright (c) Mysten Labs, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 import { Box } from "@radix-ui/themes";
 import { Mark } from "hooks/useGameQuery";
 import { ReactElement, useState } from "react";
@@ -86,12 +83,6 @@ function Cell({
         fontWeight: "bold",
     };
 
-    const hoverStyle = mark === Mark._ && empty !== Mark._ ? {
-        backgroundColor: "var(--blue-2)",
-        borderColor: "var(--blue-6)",
-        transform: "scale(1.05)",
-    } : {};
-
     switch (mark) {
         case Mark.X:
             return (
@@ -120,7 +111,7 @@ function Cell({
                 </Box>
             );
         case Mark._:
-            return <EmptyCell empty={empty} onMove={onMove} cellStyle={cellStyle} hoverStyle={hoverStyle} />;
+            return <EmptyCell empty={empty} onMove={onMove} cellStyle={cellStyle} />;
     }
 }
 
@@ -128,12 +119,10 @@ function EmptyCell({
     empty, 
     onMove, 
     cellStyle, 
-    hoverStyle 
 }: { 
     empty: Mark; 
     onMove: () => void;
     cellStyle: any;
-    hoverStyle: any;
 }): ReactElement | null {
     const [isHovered, setIsHovered] = useState(false);
 
@@ -143,7 +132,6 @@ function EmptyCell({
                 <Box 
                     style={{
                         ...cellStyle,
-                        ...(isHovered ? hoverStyle : {})
                     }}
                     onClick={onMove}
                     onMouseEnter={() => setIsHovered(true)}
@@ -157,7 +145,6 @@ function EmptyCell({
                 <Box 
                     style={{
                         ...cellStyle,
-                        ...(isHovered ? hoverStyle : {})
                     }}
                     onClick={onMove}
                     onMouseEnter={() => setIsHovered(true)}

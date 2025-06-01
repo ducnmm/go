@@ -1,6 +1,3 @@
-// Copyright (c) Mysten Labs, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 import { ReactElement, useState } from "react";
 import { Box } from "@radix-ui/themes";
 

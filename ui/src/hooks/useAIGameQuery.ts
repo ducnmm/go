@@ -1,12 +1,9 @@
-// Copyright (c) Mysten Labs, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 import { UseQueryResult } from "@tanstack/react-query";
 import { useNetworkVariable } from "config";
 import { useObjectQuery, UseObjectQueryResponse } from "hooks/useObjectQuery";
 
-/** AI Game data structure */
-export type AIGame = {
+/** Caro Game data structure */
+export type CaroGame = {
     /** The game's Object ID */
     id: string;
 
@@ -16,16 +13,16 @@ export type AIGame = {
     /** Address of the human player (always X) */
     player: string;
 
-    /** Turn indicator: 0 = player, 1 = AI */
+    /** Turn indicator: 0 = player, 1 = Computer */
     turn: number;
 
-    /** Game status: 0=active, 1=player wins, 2=AI wins, 3=draw */
+    /** Game status: 0=active, 1=player wins, 2=Computer wins, 3=draw */
     game_status: number;
 
     /** Number of moves played so far */
     moves_count: number;
 
-    /** AI difficulty level: 1=easy, 2=medium, 3=hard */
+    /** Computer difficulty level: 1=easy, 2=medium, 3=hard */
     difficulty: number;
 
     /** Game start timestamp */
@@ -35,14 +32,17 @@ export type AIGame = {
     player_move_times: number[];
 };
 
-export type UseAIGameQueryResult = UseQueryResult<AIGame, Error>;
+// Keep AIGame as alias for backwards compatibility
+export type AIGame = CaroGame;
+
+export type UseAIGameQueryResult = UseQueryResult<CaroGame, Error>;
 export type InvalidateAIGameQuery = () => void;
 
-/** Refetch AI games every 5 seconds for real-time AI moves */
+/** Refetch Caro games every 5 seconds for real-time Computer moves */
 const REFETCH_INTERVAL = 5000;
 
 /**
- * Hook to fetch an AI Game object from RPC by its ID.
+ * Hook to fetch a Caro Game object from RPC by its ID.
  *
  * Will return an error if the object cannot be fetched, or is the
  * incorrect type. Returns a query result and a function to invalidate
@@ -67,14 +67,14 @@ export function useAIGameQuery(id: string): [UseAIGameQueryResult, InvalidateAIG
 
     const data = response.data.data;
     if (!data) {
-        return [toError(response, "Failed to fetch AI game"), invalidate];
+        return [toError(response, "Failed to fetch Caro game"), invalidate];
     }
 
-    const reType = new RegExp(`^${packageId}::ai_game::AIGame`);
+    const reType = new RegExp(`^${packageId}::caro_game::CaroGame`);
     const { type, content } = data;
 
     if (!type || !type.match(reType) || !content || content.dataType !== "moveObject") {
-        return [toError(response, "Object is not an AI Game"), invalidate];
+        return [toError(response, "Object is not a Caro Game"), invalidate];
     }
 
     const {
@@ -100,7 +100,7 @@ export function useAIGameQuery(id: string): [UseAIGameQueryResult, InvalidateAIG
             difficulty: difficulty || 1,
             start_time: start_time || 0,
             player_move_times: player_move_times || [],
-        } as AIGame,
+        } as CaroGame,
     };
 
     return [success as UseAIGameQueryResult, invalidate];

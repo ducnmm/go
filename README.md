@@ -1,94 +1,184 @@
-# Tic tac toe
+# Strategy Games dApp
 
-This is an end-to-end example for on-chain tic-tac-toe. It includes:
+A blockchain-powered strategy games platform built on the Sui Network, featuring classic games like Caro (Tic-Tac-Toe variant) and Reversi with AI opponents and NFT rewards.
 
--   A [Move package](./move), containing two protocols for running a game of
-    tic-tac-toe. One that uses shared objects and consensus and another
-    that uses owned objects, and the fast path (no consensus).
--   A [React front-end](./ui), in TypeScript built on top of
-    `create-react-dapp`, using the TS SDK and `dapp-kit`.
--   A [Rust CLI](./cli), using the Rust SDK.
--   [Scripts](./scripts) to publish packages and update configs used
-    while building the front-end and CLI.
+## Features
 
-## Shared tic tac toe
+### 🎮 Multiple Game Types
+- **Caro (9x9)**: Classic five-in-a-row strategy game on a 9x9 board
+- **Reversi (Othello)**: Strategic piece-flipping game on an 8x8 board
 
-In the shared protocol, player X creates the `Game` as a shared object
-and players take turns to place marks. Once the final move is made, a
-`Trophy` is sent to any winning player (if there is one). After the
-game has ended, anyone can `burn` the finished game to reclaim the
-storage rebate (either of the players, or a third party).
+### 🤖 AI Opponents
+- Three difficulty levels for each game type
+- Smart AI algorithms providing challenging gameplay
+- Different strategies for Caro and Reversi
 
-Validation rules in the Move package ensure that the sender of each
-move corresponds to the address of the next player, and the game can
-only be `burn`-ed if it has ended.
+### 🏆 Blockchain Integration
+- **Trophy NFTs**: Earn collectible trophies for game victories
+- **On-chain Game State**: All game moves and results stored on Sui blockchain
 
-```mermaid
-sequenceDiagram
-    Player X->>Game: new
-    Player X->>Game: place_mark
-    Player O->>Game: place_mark
-    Player X->>Game: ...
-    Player O->>+Game: ...
-    Game->>-Player O: [Trophy]
-    Player X->>Game: burn
+### 📊 Stats & Achievements
+- **NFT Collection Tracking**: View your trophy collection and stats
+- **Leaderboard**: Global ranking system based on game performance
+- **Achievement System**: Track wins, losses, and gaming milestones
+
+## Smart Contract Integration
+
+### Move Package Structure
+The dApp interacts with multiple Move modules deployed on Sui:
+
+- **`caro_game`**: Handles Caro game logic, board state, and AI moves
+- **`reversi_game`**: Manages Reversi gameplay, piece flipping, and AI strategies
+- **Trophy System**: NFT minting and reward distribution
+
+### Core Smart Contract Functions
+
+#### Game Creation
+```typescript
+// Create new Caro game with AI difficulty
+newAIGame(difficulty: 1|2|3) -> Transaction
+// Create new Reversi game with AI difficulty  
+newReversiGame(difficulty: 1|2|3) -> Transaction
 ```
 
-## Owned tic tac toe
-
-In the owned protocol, player X creates the `Game` and sends it to an
-impartial third party -- the Admin -- who manages players' access to
-the game.
-
-Marks are placed in two steps: In the first step, the player creates a
-`Mark` which describes the move they want to make and sends it to the
-`Game` (using transfer to object). In the second step, the Admin
-receives the `Mark` on the game and places it.
-
-Control of who makes the next move is decided using a `TurnCap`.
-Initially Player X has the `TurnCap`. This capability must be consumed
-to create a `Mark`, and when the admin places the mark, a new
-`TurnCap` is created and sent to the next player, if the game has not
-ended yet.
-
-As in the shared protocol, once the game has ended, a `Trophy` is sent
-to any winning player. Unlike the shared protocol, only the admin can
-clean-up the Game once it has finished, because only they have access
-to it.
-
-```mermaid
-sequenceDiagram
-    activate Player X
-    Player X->>Admin: new: Game
-    Player X->>Player X: [TurnCap]
-    deactivate Player X
-    Player X->>Game: send_mark: Mark
-    activate Admin
-    Admin->>Game: place_mark
-    Admin->>Player O: [TurnCap]
-    deactivate Admin
-    Player O->>Game: send_mark: Mark
-    activate Admin
-    Admin->>Game: place_mark
-    Admin->>Player X: [TurnCap]
-    deactivate Admin
-    Player X->>Game: ...
-    Admin->>Game: ...
-    Player O->>Game: ...
-    activate Admin
-    Admin->>Game: place_mark
-    Admin->>Player O: [Trophy]
-    deactivate Admin
-    Admin->>Game: burn
+#### Game Moves
+```typescript
+// Player move in Caro game (position 0-80 for 9x9 board)
+playerMove(gameId: string, position: number) -> Transaction
+// Player move in Reversi game (position 0-63 for 8x8 board)
+reversiPlayerMove(gameId: string, position: number) -> Transaction
 ```
 
-## Pros and cons
+#### Game State Queries
+```typescript
+// Retrieve game state from blockchain
+useAIGameQuery(gameId: string) -> CaroGame
+useReversiGameQuery(gameId: string) -> ReversiGame
+```
 
-The shared protocol's main benefit is that its on-chain logic and
-client integration are straightforward, and its main downside is that
-it relies on consensus for ordering.
+### Real-time Data Synchronization
 
-In contrast, the owned protocol uses only fast-path transactions, but
-its on-chain logic is more complicated because it needs to manage the
-`TurnCap`, and its off-chain logic is complicated by requiring a third
-party service to act as an Admin.
+#### Automatic Polling
+- **5-second intervals**: Continuous polling for AI moves and game updates
+- **React Query**: Intelligent caching and background refetching
+- **Error Recovery**: Automatic retry on network failures
+
+#### Game State Structure
+```typescript
+// Caro Game Object
+CaroGame {
+  id: string              // Sui object ID
+  board: number[]         // 81-element array (9x9)
+  player: string          // Human player address
+  turn: number            // 0=player, 1=AI
+  game_status: number     // 0=active, 1=win, 2=lose, 3=draw
+  difficulty: number      // 1=easy, 2=medium, 3=hard
+  moves_count: number     // Total moves played
+  start_time: number      // Game start timestamp
+  player_move_times: number[] // Move timing analytics
+}
+
+// Reversi Game Object  
+ReversiGame {
+  id: string              // Sui object ID
+  board: number[]         // 64-element array (8x8)
+  player: string          // Human player address (Black)
+  turn: number            // 0=player, 1=AI
+  game_status: number     // 0=active, 1=win, 2=lose, 3=draw
+  player_pieces: number   // Player piece count
+  ai_pieces: number       // AI piece count
+  difficulty: number      // AI difficulty level
+  start_time: number      // Game start timestamp
+  player_move_times: number[] // Move analytics
+}
+```
+
+### Advanced Blockchain Features
+
+#### DevInspect Transactions
+- **Read-only Queries**: Extract complex game state without gas costs
+- **Trophy Status**: Check win/loss status using `devInspectTransactionBlock`
+- **Game End Detection**: Determine game outcomes through Move function calls
+
+#### Transaction Management
+- **Transaction Signing**: Secure wallet integration via dApp Kit
+- **Real-time Feedback**: Toast notifications for transaction status
+
+### Blockchain Data Flow
+
+1. **Game Creation**: User initiates game → Smart contract creates shared object → Object ID returned
+2. **Move Execution**: User selects position → Transaction built → Wallet signs → Move validated on-chain
+3. **AI Response**: Smart contract processes AI move → Game state updated → Frontend polls for changes
+4. **State Sync**: React Query fetches updated state → UI re-renders → Real-time game updates
+5. **Game End**: Win condition detected → Trophy NFT minted → Stats updated → Leaderboard refreshed
+
+## Technical Architecture
+
+### Blockchain Connectivity
+This dApp demonstrates advanced Sui blockchain integration:
+
+- **Sui TypeScript SDK**: Full integration with Sui's client libraries
+- **dApp Kit**: Wallet connection and transaction management using `@mysten/dapp-kit`
+- **Smart Contract Interaction**: Direct communication with Move smart contracts for game logic
+- **Object-based State Management**: Utilizing Sui's object model for game state persistence
+
+### Game State Management
+- **On-chain Validation**: All moves validated by Move smart contracts
+- **Real-time Updates**: Live game state synchronization with blockchain
+- **Error Recovery**: Robust error handling for blockchain interactions
+
+## Getting Started
+
+### Prerequisites
+- Node.js 16+ and pnpm installed
+- Sui wallet (like Sui Wallet browser extension)
+- Access to Sui network (Devnet recommended for testing)
+
+### Installation
+
+```bash
+# Install dependencies
+pnpm install
+```
+
+### Development
+
+```bash
+# Start development server
+pnpm dev
+```
+
+The application will be available at `http://localhost:5173`
+
+### Building for Production
+
+```bash
+# Build for deployment
+pnpm build
+```
+
+## Network Configuration
+
+The dApp automatically detects and configures for different Sui networks:
+
+- **Localnet**: Local development with custom explorer
+- **Devnet**: Development testing with SuiScan explorer
+- **Testnet**: Pre-production testing
+- **Mainnet**: Production deployment
+
+## Game URLs
+
+- **Root**: `/` - Game selection and stats
+- **Caro Game**: `/caro/{gameId}` - Join specific Caro game
+- **Reversi Game**: `/reversi/{gameId}` - Join specific Reversi game
+- **Legacy Support**: `/game/{gameId}` - Backwards compatibility
+
+## Smart Contract Integration
+
+This frontend connects to Move smart contracts deployed on Sui that handle:
+- Game creation and player coordination
+- Move validation and game logic
+- Trophy NFT minting for victories
+- Leaderboard and statistics tracking
+
+The application showcases how to build complex, stateful dApps on Sui with real-time blockchain interactions and NFT rewards.

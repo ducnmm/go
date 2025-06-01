@@ -52,9 +52,6 @@ UPGRADE_CAP=$(
 
 CONFIG="$(readlink -f ../ui/src)/env.$ENV.ts"
 cat > $CONFIG <<EOF
-// Copyright (c) Mysten Labs, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 export default {
 	packageId: '$PACKAGE_ID',
 	upgradeCap: '$UPGRADE_CAP',

@@ -1,6 +1,3 @@
-// Copyright (c) Mysten Labs, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 import { useSuiClient } from "@mysten/dapp-kit";
 import { Card, Flex, Heading, Text, Avatar, Spinner } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
@@ -13,7 +10,7 @@ interface PlayerStats {
 }
 
 /**
- * Component hiển thị top 3 người chơi có nhiều Trophy NFT nhất
+ * Component hiển thị top 3 người chơi có nhiều Trophy NFT nhất (bao gồm cả Caro và Reversi)
  */
 export function Leaderboard() {
     const client = useSuiClient();
@@ -27,15 +24,15 @@ export function Leaderboard() {
             try {
                 const playerStatsMap = new Map<string, PlayerStats>();
 
-                // Query AI Game Trophies
-                const aiTrophies = await client.queryEvents({
+                // Query Caro Game Trophies
+                const caroTrophies = await client.queryEvents({
                     query: { 
-                        MoveEventType: `${packageId}::ai_game::TrophyAwarded`
+                        MoveEventType: `${packageId}::caro_game::TrophyAwarded`
                     },
                     limit: 100
                 });
 
-                for (const event of aiTrophies.data) {
+                for (const event of caroTrophies.data) {
                     if (event.parsedJson) {
                         const data = event.parsedJson as any;
                         const player = data.player;
@@ -50,23 +47,34 @@ export function Leaderboard() {
                         
                         const stats = playerStatsMap.get(player)!;
                         stats.totalTrophies++;
-                        stats.winTrophies++; // AI trophies are all wins
+                        stats.winTrophies++; // Caro trophies are all wins
                     }
                 }
 
-                // Query Regular Game Trophy events (shared games)
-                const gameEvents = await client.queryEvents({
+                // Query Reversi Game Trophy events
+                const reversiTrophies = await client.queryEvents({
                     query: { 
-                        MoveEventType: `${packageId}::shared::GameEnd`
+                        MoveEventType: `${packageId}::reversi_game::ReversiTrophyAwarded`
                     },
-                    limit: 50
+                    limit: 100
                 });
 
-                // For shared games, we count wins from events
-                for (const event of gameEvents.data) {
+                for (const event of reversiTrophies.data) {
                     if (event.parsedJson) {
-                        // Simplified: assume event contains winner info
-                        // This would need to be adjusted based on actual event structure
+                        const data = event.parsedJson as any;
+                        const player = data.player;
+                        
+                        if (!playerStatsMap.has(player)) {
+                            playerStatsMap.set(player, {
+                                address: player,
+                                totalTrophies: 0,
+                                winTrophies: 0,
+                            });
+                        }
+                        
+                        const stats = playerStatsMap.get(player)!;
+                        stats.totalTrophies++;
+                        stats.winTrophies++; // Reversi trophies are also all wins
                     }
                 }
 
@@ -94,7 +102,7 @@ export function Leaderboard() {
             <Card size="3">
                 <Flex direction="column" align="center" gap="3" p="4">
                     <Spinner size="3" />
-                    <Text size="3" color="gray">Đang tải top 3...</Text>
+                    <Text size="3" color="gray">Loading top 3…</Text>
                 </Flex>
             </Card>
         );
@@ -103,11 +111,11 @@ export function Leaderboard() {
     return (
         <Card size="3">
             <Flex direction="column" gap="4">
-                <Heading size="5" align="center">🏆 Top 3 NFT Holders</Heading>
+                <Heading size="5" align="center">Top 3 NFT Holders</Heading>
 
                 {!leaderboard || leaderboard.length === 0 ? (
                     <Text size="3" color="gray" align="center">
-                        Chưa có Trophy nào. Hãy chơi để lên top!
+                        No Trophies yet. Play to reach the top!
                     </Text>
                 ) : (
                     <Flex direction="column" gap="3">

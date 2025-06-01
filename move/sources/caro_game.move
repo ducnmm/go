@@ -5,7 +5,7 @@
 /// The player is always X and the AI is always O.
 /// Winner receives a Trophy NFT with rarity based on performance.
 #[allow(duplicate_alias)]
-module tic_tac_toe::ai_game {
+module tic_tac_toe::caro_game {
     
     // === Imports ===
     use sui::object::{Self, UID, ID};
@@ -31,14 +31,14 @@ module tic_tac_toe::ai_game {
     
     const MARK_EMPTY: u8 = 0;
     const MARK_X: u8 = 1;  // Player
-    const MARK_O: u8 = 2;  // AI
+    const MARK_O: u8 = 2;  // Computer
 
     const GAME_ACTIVE: u8 = 0;
     const GAME_PLAYER_WIN: u8 = 1;
-    const GAME_AI_WIN: u8 = 2;
+    const GAME_COMPUTER_WIN: u8 = 2;
     const GAME_DRAW: u8 = 3;
 
-    // AI Difficulty levels
+    // Computer Difficulty levels
     const DIFFICULTY_EASY: u8 = 1;
     const DIFFICULTY_MEDIUM: u8 = 2;
     const DIFFICULTY_HARD: u8 = 3;
@@ -57,15 +57,15 @@ module tic_tac_toe::ai_game {
 
     // === Structs ===
 
-    /// Represents a caro game vs AI (9x9 board)
-    public struct AIGame has key, store {
+    /// Represents a caro game vs Computer (9x9 board)
+    public struct CaroGame has key, store {
         id: UID,
         board: vector<u8>, // 9x9 board represented as vector of 81 elements
         player: address,   // The human player (always X)
-        turn: u8,         // 0 = player turn, 1 = AI turn
-        game_status: u8,  // 0: active, 1: player wins, 2: AI wins, 3: draw
+        turn: u8,         // 0 = player turn, 1 = Computer turn
+        game_status: u8,  // 0: active, 1: player wins, 2: Computer wins, 3: draw
         moves_count: u8,  // Number of moves played
-        difficulty: u8,   // AI difficulty level
+        difficulty: u8,   // Computer difficulty level
         start_time: u64,  // Game start timestamp
         player_move_times: vector<u64>, // Track thinking time for each move
     }
@@ -76,7 +76,7 @@ module tic_tac_toe::ai_game {
         winner: address,
         rarity: u8,           // 1=Bronze, 2=Silver, 3=Gold, 4=Diamond
         moves_to_win: u8,     // Moves to win
-        ai_difficulty: u8,    // 1=Easy, 2=Medium, 3=Hard
+        computer_difficulty: u8,    // 1=Easy, 2=Medium, 3=Hard
         win_pattern: u8,      // Type of winning strategy
         thinking_time: u64,   // Total thinking time in milliseconds
         final_board: vector<u8>,
@@ -102,7 +102,7 @@ module tic_tac_toe::ai_game {
         move_time: u64,
     }
 
-    public struct AIMoveMade has copy, drop {
+    public struct ComputerMoveMade has copy, drop {
         game_id: ID,
         position: u8,
         difficulty: u8,
@@ -125,8 +125,8 @@ module tic_tac_toe::ai_game {
 
     // === Public Functions ===
 
-    /// Create a new AI game
-    public fun new_ai_game(difficulty: u8, clock: &Clock, ctx: &mut TxContext): AIGame {
+    /// Create a new Caro game
+    public fun new_caro_game(difficulty: u8, clock: &Clock, ctx: &mut TxContext): CaroGame {
         assert!(difficulty >= DIFFICULTY_EASY && difficulty <= DIFFICULTY_HARD, EInvalidDifficulty);
         
         let mut board = vector::empty<u8>();
@@ -137,7 +137,7 @@ module tic_tac_toe::ai_game {
         };
 
         let timestamp = clock::timestamp_ms(clock);
-        let game = AIGame {
+        let game = CaroGame {
             id: object::new(ctx),
             board,
             player: tx_context::sender(ctx),
@@ -159,15 +159,15 @@ module tic_tac_toe::ai_game {
         game
     }
 
-    /// Create a new shared AI game
+    /// Create a new shared Caro game
     #[allow(lint(share_owned))]
-    public fun new_shared_ai_game(difficulty: u8, clock: &Clock, ctx: &mut TxContext) {
-        transfer::share_object(new_ai_game(difficulty, clock, ctx));
+    public fun new_shared_caro_game(difficulty: u8, clock: &Clock, ctx: &mut TxContext) {
+        transfer::share_object(new_caro_game(difficulty, clock, ctx));
     }
 
     /// Player makes a move (player is always X)
     public fun player_move(
-        game: &mut AIGame,
+        game: &mut CaroGame,
         position: u8,
         clock: &Clock,
         ctx: &mut TxContext
@@ -226,33 +226,33 @@ module tic_tac_toe::ai_game {
             return
         };
 
-        // Switch to AI turn
+        // Switch to Computer turn
         game.turn = 1;
 
-        // AI makes a move immediately
-        ai_move(game, clock, ctx);
+        // Computer makes a move immediately
+        computer_move(game, clock, ctx);
     }
 
-    /// AI makes a move (AI is always O)
-    fun ai_move(game: &mut AIGame, clock: &Clock, _ctx: &mut TxContext) {
-        // Calculate AI move based on difficulty
-        let ai_position = calculate_ai_move(&game.board, game.difficulty, clock);
+    /// Computer makes a move (Computer is always O)
+    fun computer_move(game: &mut CaroGame, clock: &Clock, _ctx: &mut TxContext) {
+        // Calculate Computer move based on difficulty
+        let computer_position = calculate_computer_move(&game.board, game.difficulty, clock);
         
-        *vector::borrow_mut(&mut game.board, (ai_position as u64)) = MARK_O;
+        *vector::borrow_mut(&mut game.board, (computer_position as u64)) = MARK_O;
         game.moves_count = game.moves_count + 1;
 
-        event::emit(AIMoveMade {
+        event::emit(ComputerMoveMade {
             game_id: object::id(game),
-            position: ai_position,
+            position: computer_position,
             difficulty: game.difficulty,
         });
 
-        // Check if AI won
+        // Check if Computer won
         if (check_winner(&game.board, MARK_O)) {
-            game.game_status = GAME_AI_WIN;
+            game.game_status = GAME_COMPUTER_WIN;
             event::emit(GameFinished {
                 game_id: object::id(game),
-                winner: GAME_AI_WIN,
+                winner: GAME_COMPUTER_WIN,
                 moves_count: game.moves_count,
                 total_time: clock::timestamp_ms(clock) - game.start_time,
             });
@@ -276,7 +276,7 @@ module tic_tac_toe::ai_game {
     }
 
     /// Award trophy to winning player
-    fun award_trophy(game: &AIGame, current_time: u64, ctx: &mut TxContext) {
+    fun award_trophy(game: &CaroGame, current_time: u64, ctx: &mut TxContext) {
         let win_pattern = analyze_win_pattern(&game.board);
         let thinking_time = calculate_total_thinking_time(&game.player_move_times);
         let rarity = calculate_trophy_rarity(
@@ -293,7 +293,7 @@ module tic_tac_toe::ai_game {
             winner: game.player,
             rarity,
             moves_to_win: game.moves_count,
-            ai_difficulty: game.difficulty,
+            computer_difficulty: game.difficulty,
             win_pattern,
             thinking_time,
             final_board: game.board,
@@ -315,16 +315,16 @@ module tic_tac_toe::ai_game {
     }
 
     /// Burn finished game to reclaim storage
-    public fun burn_game(game: AIGame) {
+    public fun burn_game(game: CaroGame) {
         assert!(game.game_status != GAME_ACTIVE, EGameNotFinished);
-        let AIGame { id, .. } = game;
+        let CaroGame { id, .. } = game;
         object::delete(id);
     }
 
     // === Helper Functions ===
 
-    /// Calculate AI move based on difficulty level
-    fun calculate_ai_move(board: &vector<u8>, difficulty: u8, clock: &Clock): u8 {
+    /// Calculate Computer move based on difficulty level
+    fun calculate_computer_move(board: &vector<u8>, difficulty: u8, clock: &Clock): u8 {
         // For gas efficiency, use simplified algorithms based on difficulty
         
         if (difficulty == DIFFICULTY_EASY) {
@@ -680,16 +680,22 @@ module tic_tac_toe::ai_game {
     /// Calculate trophy rarity based on performance
     fun calculate_trophy_rarity(
         moves: u8,
-        ai_difficulty: u8,
+        computer_difficulty: u8,
         win_pattern: u8,
         thinking_time: u64
     ): u8 {
-        let mut base_rarity = if (moves == 5) 3      // Gold for 5 moves
-                             else if (moves <= 7) 2   // Silver for 6-7 moves
-                             else 1;                   // Bronze for 8-9 moves
+        // Fix: Calculate actual player moves (since player goes first)
+        // Total moves includes both player + computer moves
+        // Player moves = (total_moves + 1) / 2
+        let player_moves = (moves + 1) / 2;
 
-        // AI difficulty bonus
-        base_rarity = base_rarity + (ai_difficulty - 1);
+        let mut base_rarity = if (player_moves == 5) 3      // Gold for 5 player moves (9 total moves)
+                             else if (player_moves <= 6) 2   // Silver for 6 player moves (11 total moves)
+                             else if (player_moves <= 7) 1   // Bronze for 7 player moves (13 total moves)
+                             else 1;                          // Bronze for 8+ player moves
+
+        // Computer difficulty bonus
+        base_rarity = base_rarity + (computer_difficulty - 1);
 
         // Fast thinking bonus (under 5 seconds total)
         if (thinking_time < 5000) {
@@ -713,7 +719,7 @@ module tic_tac_toe::ai_game {
                    else if (rarity == RARITY_DIAMOND) string::utf8(b"Diamond Genius")
                    else string::utf8(b"Legend");
 
-        let description = string::utf8(b"Defeated AI in Tic-Tac-Toe with superior strategy");
+        let description = string::utf8(b"Defeated Computer in Caro Game with superior strategy");
         let image_url = string::utf8(b"https://api.example.com/trophy/");
 
         (name, description, image_url)
@@ -722,27 +728,27 @@ module tic_tac_toe::ai_game {
     // === View Functions ===
 
     /// Get game status
-    public fun get_game_status(game: &AIGame): u8 {
+    public fun get_game_status(game: &CaroGame): u8 {
         game.game_status
     }
 
     /// Get current board state
-    public fun get_board(game: &AIGame): vector<u8> {
+    public fun get_board(game: &CaroGame): vector<u8> {
         game.board
     }
 
     /// Get whose turn it is
-    public fun get_turn(game: &AIGame): u8 {
+    public fun get_turn(game: &CaroGame): u8 {
         game.turn
     }
 
     /// Get move count
-    public fun get_moves_count(game: &AIGame): u8 {
+    public fun get_moves_count(game: &CaroGame): u8 {
         game.moves_count
     }
 
-    /// Get AI difficulty
-    public fun get_difficulty(game: &AIGame): u8 {
+    /// Get Computer difficulty
+    public fun get_difficulty(game: &CaroGame): u8 {
         game.difficulty
     }
-} 
+}
